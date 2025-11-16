@@ -86,11 +86,11 @@ function mcpManager() {
         async loadEnhancePromptPage() {
             try {
                 console.log('Loading enhance-prompt page...');
-                const html = await Utils.loadComponent('enhance-prompt/index-v4');
+                const html = await Utils.loadComponent('enhance-prompt/index');
                 const container = document.getElementById('enhance-prompt-page-container');
                 if (container) {
                     container.innerHTML = html;
-                    console.log('✅ Enhance-prompt page V4 loaded successfully (four-block layout)');
+                    console.log('✅ Enhance-prompt page loaded successfully (four-block layout)');
                     
                     // Load sub-components after main page is loaded
                     await this.loadEnhancePromptSubComponents();
@@ -796,42 +796,119 @@ function mcpManager() {
             }
         },
         
-        // Convert file tree to text format (directories only, whitelist mode)
-        convertFileTreeToText(files, prefix = '', isLast = true) {
+        // Convert file tree to text format (directories only, smart whitelist + pruning mode)
+        convertFileTreeToText(files, prefix = '', isLast = true, depth = 0) {
             if (!files || files.length === 0) return '';
             
             let result = '';
             
-            // Whitelist: only include source code directories
+            // Whitelist: source code directories (checked at any depth)
             const sourceCodeDirs = [
                 'src', 'app', 'lib', 'core', 'features', 'modules', 'components',
                 'services', 'utils', 'helpers', 'models', 'views', 'controllers',
                 'api', 'routes', 'middleware', 'config', 'database', 'migrations',
                 'tests', 'test', '__tests__', 'specs', 'e2e',
                 'public', 'assets', 'resources', 'static',
-                'packages', 'libs', 'shared', 'common'
+                'packages', 'libs', 'shared', 'common',
+                'kotlin', 'java', 'swift', 'cpp', 'go', 'rust', 'python'
             ];
             
-            // Filter to only include directories
-            let directories = files.filter(file => file.type === 'directory');
+            // Package structure directories (should be pruned to show only leaf folders)
+            const packageDirs = ['com', 'org', 'io', 'net', 'example', 'gymbro'];
             
-            // Apply whitelist filter only at top level
+            // Helper: check if directory is whitelisted
+            const isWhitelisted = (name) => {
+                const lowerName = name.toLowerCase();
+                return sourceCodeDirs.some(allowed => lowerName.includes(allowed));
+            };
+            
+            // Helper: check if directory is package structure
+            const isPackageDir = (name) => {
+                const lowerName = name.toLowerCase();
+                return packageDirs.includes(lowerName);
+            };
+            
+            // Helper: check if directory contains files (recursively)
+            const hasFiles = (dir) => {
+                if (!dir.children || dir.children.length === 0) return false;
+                return dir.children.some(child => 
+                    child.type === 'file' || (child.type === 'directory' && hasFiles(child))
+                );
+            };
+            
+            // Helper: find leaf source directories (directories with files or whitelisted subdirs)
+            const findLeafDirs = (dir) => {
+                if (!dir.children || dir.children.length === 0) return [];
+                
+                const hasDirectFiles = dir.children.some(c => c.type === 'file');
+                const hasWhitelistedSubdirs = dir.children.some(c => 
+                    c.type === 'directory' && isWhitelisted(c.name)
+                );
+                
+                // This is a leaf if it has files or whitelisted subdirs
+                if (hasDirectFiles || hasWhitelistedSubdirs) {
+                    return [dir];
+                }
+                
+                // Otherwise, recurse into children
+                let leaves = [];
+                for (const child of dir.children) {
+                    if (child.type === 'directory') {
+                        leaves = leaves.concat(findLeafDirs(child));
+                    }
+                }
+                return leaves;
+            };
+            
+            // Apply whitelist filter at top level only
+            let filteredFiles = files;
             if (prefix === '') {
-                directories = directories.filter(dir => {
-                    const lowerName = dir.name.toLowerCase();
-                    return sourceCodeDirs.some(allowed => lowerName.includes(allowed));
+                filteredFiles = files.filter(file => {
+                    if (file.type === 'file') return false; // Hide top-level files
+                    return isWhitelisted(file.name) && hasFiles(file);
                 });
-                console.log(`Converting ${directories.length} whitelisted top-level directories to text`);
+                console.log(`Converting ${filteredFiles.length} whitelisted top-level directories to text`);
             }
             
-            directories.forEach((file, index) => {
-                const isLastItem = index === directories.length - 1;
+            // Sort: directories first, alphabetically
+            filteredFiles.sort((a, b) => a.name.localeCompare(b.name));
+            
+            filteredFiles.forEach((file, index) => {
+                if (file.type !== 'directory') return;
+                
+                const isLastItem = index === filteredFiles.length - 1;
                 const connector = isLastItem ? '└── ' : '├── ';
                 const newPrefix = prefix + (isLastItem ? '    ' : '│   ');
                 
+                // Check if this is a package structure directory that should be pruned
+                if (isPackageDir(file.name) && file.children && file.children.length > 0) {
+                    // Find leaf directories and show them directly
+                    const leaves = findLeafDirs(file);
+                    if (leaves.length > 0 && leaves[0] !== file) {
+                        // Build collapsed path
+                        let current = file;
+                        let pathParts = [current.name];
+                        
+                        while (current.children && current.children.length === 1 && 
+                               current.children[0].type === 'directory' && 
+                               !current.children.some(c => c.type === 'file')) {
+                            current = current.children[0];
+                            pathParts.push(current.name);
+                        }
+                        
+                        result += prefix + connector + pathParts.join('/') + '/\n';
+                        
+                        if (current.children && current.children.length > 0) {
+                            result += this.convertFileTreeToText(current.children, newPrefix, isLastItem, depth + 1);
+                        }
+                        return;
+                    }
+                }
+                
                 result += prefix + connector + file.name + '/\n';
+                
                 if (file.children && file.children.length > 0) {
-                    result += this.convertFileTreeToText(file.children, newPrefix, isLastItem);
+                    result += this.convertFileTreeToText(file.children, newPrefix, isLastItem, depth + 1);
                 }
             });
             

@@ -309,14 +309,14 @@ document.addEventListener('alpine:init', () => {
         
         // Persist enhance form data - comprehensive version
         persistEnhanceForm() {
-            Storage.set(STORAGE_KEYS.ENHANCE_MESSAGE, this.enhanceForm.originalMessage);
-            Storage.set(STORAGE_KEYS.ENHANCE_LANGUAGE, this.enhanceForm.language);
-            Storage.set(STORAGE_KEYS.ENHANCE_PROJECT_PATH, this.enhanceForm.projectPath);
-            Storage.setJSON(STORAGE_KEYS.ENHANCE_SELECTED_FILES, this.enhanceForm.selectedFiles);
-            Storage.set(STORAGE_KEYS.ENHANCE_USER_GUIDELINES, this.enhanceForm.userGuidelines);
-            Storage.set(STORAGE_KEYS.ENHANCE_CUSTOM_GUIDELINE_PATH, this.enhanceForm.customGuidelinePath);
-            Storage.set(STORAGE_KEYS.ENHANCE_INCLUDE_README, this.enhanceForm.includeReadme.toString());
-            Storage.set(STORAGE_KEYS.ENHANCE_TREE_DEPTH, this.enhanceForm.treeDepth.toString());
+            Storage.set(STORAGE_KEYS.ENHANCE_MESSAGE, this.enhanceForm.originalMessage || '');
+            Storage.set(STORAGE_KEYS.ENHANCE_LANGUAGE, this.enhanceForm.language || 'zh');
+            Storage.set(STORAGE_KEYS.ENHANCE_PROJECT_PATH, this.enhanceForm.projectPath || '');
+            Storage.setJSON(STORAGE_KEYS.ENHANCE_SELECTED_FILES, this.enhanceForm.selectedFiles || []);
+            Storage.set(STORAGE_KEYS.ENHANCE_USER_GUIDELINES, this.enhanceForm.userGuidelines || 'none');
+            Storage.set(STORAGE_KEYS.ENHANCE_CUSTOM_GUIDELINE_PATH, this.enhanceForm.customGuidelinePath || '');
+            Storage.set(STORAGE_KEYS.ENHANCE_INCLUDE_README, String(this.enhanceForm.includeReadme ?? false));
+            Storage.set(STORAGE_KEYS.ENHANCE_TREE_DEPTH, String(this.enhanceForm.treeDepth ?? 20));
         },
         
         // Restore enhance form data from localStorage
@@ -328,7 +328,8 @@ document.addEventListener('alpine:init', () => {
                 selectedFiles: Storage.getJSON(STORAGE_KEYS.ENHANCE_SELECTED_FILES, []),
                 userGuidelines: Storage.get(STORAGE_KEYS.ENHANCE_USER_GUIDELINES, 'none'),
                 customGuidelinePath: Storage.get(STORAGE_KEYS.ENHANCE_CUSTOM_GUIDELINE_PATH, ''),
-                includeReadme: Storage.get(STORAGE_KEYS.ENHANCE_INCLUDE_README, 'false') === 'true'
+                includeReadme: Storage.get(STORAGE_KEYS.ENHANCE_INCLUDE_README, 'false') === 'true',
+                treeDepth: parseInt(Storage.get(STORAGE_KEYS.ENHANCE_TREE_DEPTH, '20'), 10)
             };
         },
         
@@ -341,7 +342,8 @@ document.addEventListener('alpine:init', () => {
                 selectedFiles: [],
                 userGuidelines: 'none',
                 customGuidelinePath: '',
-                includeReadme: false
+                includeReadme: false,
+                treeDepth: 20
             };
             this.persistEnhanceForm();
         },
