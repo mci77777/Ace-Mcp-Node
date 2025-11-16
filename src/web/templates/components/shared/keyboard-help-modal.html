@@ -1,0 +1,160 @@
+<!-- Task 11.2: Keyboard Shortcuts Help Modal -->
+<!-- Displays all available keyboard shortcuts in a modal dialog -->
+
+<div 
+    x-show="$store.app.showKeyboardHelp"
+    @keydown.escape.window="$store.app.showKeyboardHelp = false"
+    @keydown.question.window="$store.app.showKeyboardHelp = true"
+    class="fixed inset-0 z-50 overflow-y-auto"
+    x-cloak
+>
+    <!-- Backdrop -->
+    <div 
+        x-show="$store.app.showKeyboardHelp"
+        x-transition:enter="transition ease-out duration-300"
+        x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100"
+        x-transition:leave="transition ease-in duration-200"
+        x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0"
+        @click="$store.app.showKeyboardHelp = false"
+        class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm"
+    ></div>
+    
+    <!-- Modal Content -->
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div 
+            x-show="$store.app.showKeyboardHelp"
+            x-transition:enter="transition ease-out duration-300"
+            x-transition:enter-start="opacity-0 scale-95"
+            x-transition:enter-end="opacity-100 scale-100"
+            x-transition:leave="transition ease-in duration-200"
+            x-transition:leave-start="opacity-100 scale-100"
+            x-transition:leave-end="opacity-0 scale-95"
+            @click.stop
+            class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+        >
+            <!-- Header -->
+            <div class="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800 z-10">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">⌨️</span>
+                    <h3 class="text-xl font-bold text-gray-800 dark:text-gray-100">
+                        <span x-show="$store.app.lang === 'zh'">键盘快捷键</span>
+                        <span x-show="$store.app.lang === 'en'">Keyboard Shortcuts</span>
+                    </h3>
+                </div>
+                <button 
+                    @click="$store.app.showKeyboardHelp = false"
+                    class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-2xl transition-colors"
+                    aria-label="Close"
+                >
+                    ✕
+                </button>
+            </div>
+            
+            <!-- Body -->
+            <div class="p-6 space-y-6">
+                <!-- Global Shortcuts Section -->
+                <div>
+                    <h4 class="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-3 flex items-center gap-2">
+                        <span>🌐</span>
+                        <span x-show="$store.app.lang === 'zh'">全局快捷键</span>
+                        <span x-show="$store.app.lang === 'en'">Global Shortcuts</span>
+                    </h4>
+                    <div class="space-y-3">
+                        <!-- ESC -->
+                        <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                            <div class="flex-1">
+                                <p class="font-medium text-gray-800 dark:text-gray-100">
+                                    <span x-show="$store.app.lang === 'zh'">关闭模态框/通知</span>
+                                    <span x-show="$store.app.lang === 'en'">Close Modal/Notification</span>
+                                </p>
+                                <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                    <span x-show="$store.app.lang === 'zh'">关闭当前打开的模态框或通知消息</span>
+                                    <span x-show="$store.app.lang === 'en'">Close currently open modal or notification</span>
+                                </p>
+                            </div>
+                            <kbd class="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono shadow-sm">ESC</kbd>
+                        </div>
+                        
+                        <!-- ? -->
+                        <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                            <div class="flex-1">
+                                <p class="font-medium text-gray-800 dark:text-gray-100">
+                                    <span x-show="$store.app.lang === 'zh'">显示快捷键帮助</span>
+                                    <span x-show="$store.app.lang === 'en'">Show Keyboard Help</span>
+                                </p>
+                                <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                    <span x-show="$store.app.lang === 'zh'">打开此帮助对话框</span>
+                                    <span x-show="$store.app.lang === 'en'">Open this help dialog</span>
+                                </p>
+                            </div>
+                            <kbd class="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono shadow-sm">?</kbd>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Enhance Prompt Shortcuts Section -->
+                <div>
+                    <h4 class="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-3 flex items-center gap-2">
+                        <span>⚡</span>
+                        <span x-show="$store.app.lang === 'zh'">提示词增强快捷键</span>
+                        <span x-show="$store.app.lang === 'en'">Enhance Prompt Shortcuts</span>
+                    </h4>
+                    <div class="space-y-3">
+                        <!-- Ctrl+Enter -->
+                        <div class="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                            <div class="flex-1">
+                                <p class="font-medium text-gray-800 dark:text-gray-100">
+                                    <span x-show="$store.app.lang === 'zh'">提交提示词增强</span>
+                                    <span x-show="$store.app.lang === 'en'">Submit Prompt Enhancement</span>
+                                </p>
+                                <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                    <span x-show="$store.app.lang === 'zh'">在提示词增强页面快速提交表单</span>
+                                    <span x-show="$store.app.lang === 'en'">Quickly submit form on enhance prompt page</span>
+                                </p>
+                            </div>
+                            <div class="flex items-center gap-1">
+                                <kbd class="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono shadow-sm">Ctrl</kbd>
+                                <span class="text-gray-500">+</span>
+                                <kbd class="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono shadow-sm">Enter</kbd>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Tips Section -->
+                <div class="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                    <div class="flex items-start gap-3">
+                        <span class="text-xl">💡</span>
+                        <div>
+                            <h5 class="font-semibold text-gray-800 dark:text-gray-100 mb-2">
+                                <span x-show="$store.app.lang === 'zh'">提示</span>
+                                <span x-show="$store.app.lang === 'en'">Tips</span>
+                            </h5>
+                            <ul class="text-sm text-gray-700 dark:text-gray-300 space-y-1 list-disc list-inside">
+                                <li x-show="$store.app.lang === 'zh'">快捷键在整个应用中都可用</li>
+                                <li x-show="$store.app.lang === 'en'">Shortcuts are available throughout the application</li>
+                                <li x-show="$store.app.lang === 'zh'">某些快捷键仅在特定页面有效</li>
+                                <li x-show="$store.app.lang === 'en'">Some shortcuts only work on specific pages</li>
+                                <li x-show="$store.app.lang === 'zh'">按 <kbd class="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-xs font-mono">?</kbd> 随时查看此帮助</li>
+                                <li x-show="$store.app.lang === 'en'">Press <kbd class="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-xs font-mono">?</kbd> anytime to view this help</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Footer -->
+            <div class="flex justify-end gap-3 p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                <button 
+                    @click="$store.app.showKeyboardHelp = false"
+                    class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors duration-200 font-medium"
+                >
+                    <span x-show="$store.app.lang === 'zh'">关闭</span>
+                    <span x-show="$store.app.lang === 'en'">Close</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

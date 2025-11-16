@@ -1,0 +1,106 @@
+<!-- Logs Tab Content -->
+<!-- Reuses logs panel functionality for enhance prompt page -->
+
+<div class="logs-content">
+    
+    <!-- Header with Connection Status and Clear Button -->
+    <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-3">
+            <h4 class="text-lg font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                <span>📋</span>
+                <span x-text="t('tab_logs')"></span>
+            </h4>
+            <div class="flex items-center gap-2">
+                <div 
+                    class="w-2 h-2 rounded-full animate-pulse"
+                    :class="$store.app.wsConnected ? 'bg-green-500' : 'bg-red-500'"
+                ></div>
+                <span 
+                    class="text-xs sm:text-sm font-medium"
+                    :class="$store.app.wsConnected ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'"
+                    x-text="$store.app.wsConnected ? t('logs_connected') : t('logs_disconnected')"
+                ></span>
+            </div>
+        </div>
+        
+        <button 
+            @click="clearLogs()"
+            class="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors duration-200 flex items-center gap-2 text-sm font-medium"
+            :disabled="$store.app.logs.length === 0"
+            :class="$store.app.logs.length === 0 ? 'opacity-50 cursor-not-allowed' : ''"
+        >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+            </svg>
+            <span x-text="t('logs_clear')"></span>
+        </button>
+    </div>
+    
+    <!-- Log Count Info -->
+    <div class="mb-3 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+        <span x-text="$store.app.logs.length"></span>
+        <span x-text="t('logs_count')"></span>
+        <span x-show="$store.app.logs.length >= 500" class="ml-2 text-yellow-600 dark:text-yellow-400">
+            (⚠️ Maximum reached)
+        </span>
+    </div>
+    
+    <!-- Logs Container -->
+    <div 
+        x-ref="logsContainer"
+        class="bg-gray-900 dark:bg-black rounded-md p-3 sm:p-4 overflow-y-auto font-mono text-xs sm:text-sm"
+        style="height: 400px;"
+        x-init="
+            // Auto-scroll to bottom when new logs arrive
+            $watch('$store.app.logs.length', () => {
+                $nextTick(() => {
+                    if ($refs.logsContainer) {
+                        $refs.logsContainer.scrollTop = $refs.logsContainer.scrollHeight;
+                    }
+                });
+            });
+        "
+    >
+        <!-- Empty State -->
+        <div 
+            x-show="$store.app.logs.length === 0"
+            class="flex flex-col items-center justify-center h-full text-gray-500 dark:text-gray-600"
+        >
+            <span class="text-3xl sm:text-4xl mb-3">📋</span>
+            <p class="text-sm" x-text="t('logs_empty')"></p>
+        </div>
+        
+        <!-- Log Entries -->
+        <template x-for="(log, index) in $store.app.logs" :key="log.id || index">
+            <div 
+                class="mb-1 hover:bg-gray-800 dark:hover:bg-gray-900 px-2 py-1 rounded transition-colors duration-150 break-words"
+                :class="{
+                    'text-red-400': (log.text || log.message || '').toLowerCase().includes('error') || (log.text || log.message || '').toLowerCase().includes('failed'),
+                    'text-yellow-400': (log.text || log.message || '').toLowerCase().includes('warning') || (log.text || log.message || '').toLowerCase().includes('warn'),
+                    'text-green-400': (log.text || log.message || '').toLowerCase().includes('success') || (log.text || log.message || '').toLowerCase().includes('completed'),
+                    'text-blue-400': (log.text || log.message || '').toLowerCase().includes('info') || (log.text || log.message || '').toLowerCase().includes('starting'),
+                    'text-gray-300': !(
+                        (log.text || log.message || '').toLowerCase().includes('error') || 
+                        (log.text || log.message || '').toLowerCase().includes('failed') ||
+                        (log.text || log.message || '').toLowerCase().includes('warning') || 
+                        (log.text || log.message || '').toLowerCase().includes('warn') ||
+                        (log.text || log.message || '').toLowerCase().includes('success') || 
+                        (log.text || log.message || '').toLowerCase().includes('completed') ||
+                        (log.text || log.message || '').toLowerCase().includes('info') || 
+                        (log.text || log.message || '').toLowerCase().includes('starting')
+                    )
+                }"
+            >
+                <span x-show="log.timestamp" class="text-gray-500 mr-2" x-text="log.timestamp"></span>
+                <span x-text="log.text || log.message"></span>
+            </div>
+        </template>
+    </div>
+    
+    <!-- Auto-scroll indicator -->
+    <div class="mt-2 text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
+        <span>📌</span>
+        <span x-text="t('logs_auto_scroll')"></span>
+    </div>
+    
+</div>

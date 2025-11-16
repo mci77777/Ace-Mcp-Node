@@ -1,0 +1,265 @@
+<!-- Prompt Editor Component -->
+<!-- Edit system prompt and inject code files -->
+
+<div class="prompt-editor-content" x-data="{
+    files: [],
+    selectedFile: null,
+    originalContent: '',
+    editedContent: '',
+    loading: false,
+    saving: false,
+    hasChanges: false,
+    charCount: 0,
+    
+    async init() {
+        await this.loadFileList();
+    },
+    
+    async loadFileList() {
+        try {
+            this.loading = true;
+            const response = await API.getPromptFiles();
+            this.files = response.files || [];
+            
+            // Auto-select first file
+            if (this.files.length > 0 && !this.selectedFile) {
+                await this.selectFile(this.files[0].name);
+            }
+        } catch (error) {
+            console.error('Failed to load prompt files:', error);
+            $store.app.showNotification('error', 'Failed to load prompt files');
+        } finally {
+            this.loading = false;
+        }
+    },
+    
+    async selectFile(filename) {
+        try {
+            this.loading = true;
+            const response = await API.getPromptFile(filename);
+            
+            this.selectedFile = filename;
+            this.originalContent = response.content || '';
+            this.editedContent = response.content || '';
+            this.hasChanges = false;
+            this.updateCharCount();
+        } catch (error) {
+            console.error('Failed to load file:', error);
+            $store.app.showNotification('error', `Failed to load ${filename}`);
+        } finally {
+            this.loading = false;
+        }
+    },
+    
+    onContentChange() {
+        this.hasChanges = this.editedContent !== this.originalContent;
+        this.updateCharCount();
+    },
+    
+    updateCharCount() {
+        this.charCount = this.editedContent.length;
+    },
+    
+    resetContent() {
+        if (this.hasChanges && !confirm('Discard all changes?')) {
+            return;
+        }
+        this.editedContent = this.originalContent;
+        this.hasChanges = false;
+        this.updateCharCount();
+    },
+    
+    async saveContent() {
+        if (!this.selectedFile || !this.hasChanges) {
+            return;
+        }
+        
+        try {
+            this.saving = true;
+            await API.updatePromptFile(this.selectedFile, this.editedContent);
+            
+            this.originalContent = this.editedContent;
+            this.hasChanges = false;
+            
+            $store.app.showNotification('success', `${this.selectedFile} saved successfully`);
+        } catch (error) {
+            console.error('Failed to save file:', error);
+            $store.app.showNotification('error', `Failed to save ${this.selectedFile}`);
+        } finally {
+            this.saving = false;
+        }
+    },
+    
+    getFileIcon(filename) {
+        if (filename === 'prompt.txt') return '📝';
+        if (filename === 'inject-code.txt') return '💉';
+        return '📄';
+    },
+    
+    getFileDescription(filename) {
+        const file = this.files.find(f => f.name === filename);
+        return file ? file.description : '';
+    }
+}">
+    
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-6">
+        <h4 class="text-lg font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+            <span>✏️</span>
+            <span x-text="t('edit_prompt_files')"></span>
+        </h4>
+        
+        <!-- Save/Reset Controls -->
+        <div class="flex gap-2" x-show="selectedFile">
+            <button 
+                @click="resetContent()"
+                :disabled="!hasChanges || saving"
+                class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200 text-sm font-medium flex items-center gap-2"
+            >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+                <span x-text="t('reset')"></span>
+            </button>
+            
+            <button 
+                @click="saveContent()"
+                :disabled="!hasChanges || saving"
+                class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200 text-sm font-medium flex items-center gap-2"
+            >
+                <svg x-show="!saving" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+                <svg x-show="saving" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span x-text="saving ? t('saving') : t('save')"></span>
+            </button>
+        </div>
+    </div>
+    
+    <!-- Loading State -->
+    <div x-show="loading && !selectedFile" class="flex items-center justify-center py-12">
+        <div class="text-center">
+            <div class="loading-spinner loading-spinner-lg mx-auto mb-4"></div>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Loading prompt files...</p>
+        </div>
+    </div>
+    
+    <!-- Main Content -->
+    <div x-show="!loading || selectedFile" class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        
+        <!-- File List Sidebar -->
+        <div class="lg:col-span-1">
+            <div class="space-y-2">
+                <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                    <span class="flex items-center gap-2">
+                        <span>📁</span>
+                        <span>Prompt Files</span>
+                    </span>
+                </label>
+                
+                <template x-for="file in files" :key="file.name">
+                    <button
+                        @click="selectFile(file.name)"
+                        :class="selectedFile === file.name ? 'bg-blue-100 dark:bg-blue-900 border-blue-500 text-blue-800 dark:text-blue-200' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-750'"
+                        class="w-full text-left p-3 rounded-lg border-2 transition-all duration-200 flex items-start gap-3"
+                    >
+                        <span class="text-2xl flex-shrink-0" x-text="getFileIcon(file.name)"></span>
+                        <div class="flex-1 min-w-0">
+                            <div class="font-medium text-sm truncate" x-text="file.name"></div>
+                            <div class="text-xs opacity-75 mt-1" x-text="file.description"></div>
+                        </div>
+                    </button>
+                </template>
+                
+                <!-- Empty State -->
+                <div x-show="files.length === 0 && !loading" class="text-center py-8 text-gray-500 dark:text-gray-400">
+                    <svg class="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <p class="text-sm">No prompt files found</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Editor Area -->
+        <div class="lg:col-span-3">
+            <div x-show="selectedFile" class="space-y-4">
+                
+                <!-- File Info Header -->
+                <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-300 dark:border-gray-600">
+                    <div class="flex items-center gap-3">
+                        <span class="text-2xl" x-text="getFileIcon(selectedFile)"></span>
+                        <div>
+                            <div class="font-semibold text-gray-800 dark:text-gray-100" x-text="selectedFile"></div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400" x-text="getFileDescription(selectedFile)"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Character Count -->
+                    <div class="text-right">
+                        <div class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            <span x-text="charCount.toLocaleString()"></span> characters
+                        </div>
+                        <div x-show="hasChanges" class="text-xs text-orange-600 dark:text-orange-400 flex items-center gap-1 justify-end mt-1">
+                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                            </svg>
+                            <span>Unsaved changes</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Text Editor -->
+                <div class="relative">
+                    <textarea
+                        x-model="editedContent"
+                        @input="onContentChange()"
+                        :disabled="loading || saving"
+                        class="w-full h-96 rounded-lg border-2 border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 text-sm p-4 font-mono resize-y transition-colors"
+                        :class="hasChanges ? 'border-orange-400 dark:border-orange-500' : ''"
+                        placeholder="Enter prompt content..."
+                        style="min-height: 24rem; max-height: 48rem;"
+                    ></textarea>
+                    
+                    <!-- Loading Overlay -->
+                    <div x-show="loading" class="absolute inset-0 bg-white dark:bg-gray-800 bg-opacity-75 dark:bg-opacity-75 rounded-lg flex items-center justify-center">
+                        <div class="loading-spinner loading-spinner-lg"></div>
+                    </div>
+                </div>
+                
+                <!-- Editor Tips -->
+                <div class="p-4 bg-blue-50 dark:bg-blue-900 dark:bg-opacity-20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <div class="flex items-start gap-3">
+                        <svg class="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                        </svg>
+                        <div class="flex-1">
+                            <h5 class="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-2">Editor Tips</h5>
+                            <ul class="text-xs text-blue-700 dark:text-blue-400 space-y-1">
+                                <li>• <strong>prompt.txt</strong>: Main system prompt sent to the AI model</li>
+                                <li>• <strong>inject-code.txt</strong>: Additional context and instructions</li>
+                                <li>• Changes take effect immediately after saving</li>
+                                <li>• Use Ctrl+Z (Cmd+Z) to undo changes in the editor</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            
+            <!-- No File Selected State -->
+            <div x-show="!selectedFile && !loading" class="text-center py-16 text-gray-500 dark:text-gray-400">
+                <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                </svg>
+                <p class="text-lg font-medium mb-2">No file selected</p>
+                <p class="text-sm">Select a prompt file from the sidebar to start editing</p>
+            </div>
+        </div>
+        
+    </div>
+    
+</div>

@@ -1,0 +1,28 @@
+<!-- Loading Indicator Component -->
+<!-- Displays a spinning loader with optional text -->
+<div 
+    x-data="{ size: 'md', color: 'blue' }"
+    class="flex items-center justify-center gap-3"
+>
+    <!-- Spinner -->
+    <div 
+        :class="{
+            'w-4 h-4': size === 'sm',
+            'w-8 h-8': size === 'md',
+            'w-12 h-12': size === 'lg',
+            'border-blue-500': color === 'blue',
+            'border-green-500': color === 'green',
+            'border-red-500': color === 'red',
+            'border-gray-500': color === 'gray'
+        }"
+        class="border-4 border-t-transparent rounded-full animate-spin"
+    ></div>
+    
+    <!-- Optional text -->
+    <span 
+        x-show="$slots.default"
+        class="text-gray-600 dark:text-gray-300"
+    >
+        <slot></slot>
+    </span>
+</div>

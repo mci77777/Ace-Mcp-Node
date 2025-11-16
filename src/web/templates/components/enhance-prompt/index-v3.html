@@ -1,0 +1,54 @@
+<!-- Enhance Prompt Page - V3 Layout with RAW Message Preview -->
+<!-- Layout: Project Path | Original Message | RAW Message | Enhanced Result -->
+
+<div class="enhance-prompt-page" x-data="{
+    fileTree: null,
+    fileTreeLoading: false,
+    
+    async loadFileTree() {
+        await mcpManager().loadFileTree();
+        this.fileTree = mcpManager().fileTree;
+        this.fileTreeLoading = mcpManager().fileTreeLoading;
+    },
+    
+    toggleFileSelection(filePath) {
+        mcpManager().toggleFileSelection(filePath);
+    },
+    
+    isFileSelected(filePath) {
+        return mcpManager().isFileSelected(filePath);
+    },
+    
+    validateProjectPath() {
+        mcpManager().validateProjectPath();
+    },
+    
+    validateCustomGuideline() {
+        mcpManager().validateCustomGuideline();
+    },
+    
+    toggleRawMessage() {
+        $store.app.showRawMessage = !$store.app.showRawMessage;
+    },
+    
+    toggleResultView() {
+        $store.app.resultViewMode = $store.app.resultViewMode === 'raw' ? 'markdown' : 'raw';
+    }
+}">
+    
+    <!-- Page Title -->
+    <div class="mb-6">
+        <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-3">
+            <span class="text-3xl">⚡</span>
+            <span x-text="$t('enhance_prompt')"></span>
+        </h2>
+        <p class="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-2">
+            Enhance your prompts with project context and guidelines
+        </p>
+    </div>
+    
+    <!-- Two Column Layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        
+        <!-- Left Column: Project Path + Original Message -->
+        <div class="space-y-4">

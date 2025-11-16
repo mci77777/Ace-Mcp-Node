@@ -1,0 +1,40 @@
+{
+  "name": "codebase-retrieval-mcp",
+  "version": "0.1.4",
+  "description": "MCP server for codebase retrieval and prompt enhancement - Node.js implementation",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc && npm run copy-templates",
+    "copy-templates": "node -e \"require('fs').cpSync('src/web/templates', 'dist/web/templates', {recursive: true})\"",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "start:web": "node dist/index.js --web-port 8090",
+    "test": "node test-server.js",
+    "deploy:prepare": "node scripts/deploy-prepare.js",
+    "deploy": "node scripts/deploy.js"
+  },
+  "keywords": ["mcp", "codebase", "indexing", "semantic-search"],
+  "author": "wmymz <wmymz@icloud.com>",
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.21.1",
+    "@iarna/toml": "^2.2.5",
+    "axios": "^1.7.0",
+    "express": "^4.18.0",
+    "ws": "^8.18.0",
+    "ignore": "^6.0.0",
+    "zod": "^3.25.76",
+    "iconv-lite": "^0.6.3"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^24.10.0",
+    "@types/ws": "^8.5.12",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

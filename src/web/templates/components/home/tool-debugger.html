@@ -1,0 +1,192 @@
+<!-- Tool Debugger Component -->
+<!-- Allows testing MCP tools with custom arguments -->
+
+<div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6" x-data="{
+    selectedTool: 'codebase-retrieval',
+    toolArgs: {
+        'codebase-retrieval': {
+            project_root_path: '',
+            query: ''
+        }
+    },
+    result: null,
+    executing: false,
+    error: null,
+    
+    async executeTool() {
+        this.executing = true;
+        this.error = null;
+        this.result = null;
+        
+        try {
+            const args = this.toolArgs[this.selectedTool];
+            const data = await API.executeTool(this.selectedTool, args);
+            
+            // Handle API response format: { status: 'success', result } or { status: 'error', message }
+            if (data.status === 'error') {
+                this.error = data.message || 'Tool execution failed';
+                Alpine.store('app').showNotification('error', this.error);
+            } else {
+                this.result = data.result || data;
+                Alpine.store('app').showNotification('success', 'Tool executed successfully');
+            }
+        } catch (err) {
+            this.error = Utils.parseError(err);
+            Alpine.store('app').showNotification('error', this.error);
+        } finally {
+            this.executing = false;
+        }
+    },
+    
+    exportResult(format) {
+        if (!this.result) return;
+        
+        let content, filename, mimeType;
+        
+        if (format === 'json') {
+            content = JSON.stringify(this.result, null, 2);
+            filename = `tool-result-${Date.now()}.json`;
+            mimeType = 'application/json';
+        } else if (format === 'markdown') {
+            content = '# Tool Execution Result\n\n';
+            content += `**Tool**: ${this.selectedTool}\n\n`;
+            content += `**Timestamp**: ${new Date().toISOString()}\n\n`;
+            content += `**Arguments**:\n\`\`\`json\n${JSON.stringify(this.toolArgs[this.selectedTool], null, 2)}\n\`\`\`\n\n`;
+            content += `**Result**:\n\`\`\`json\n${JSON.stringify(this.result, null, 2)}\n\`\`\`\n`;
+            filename = `tool-result-${Date.now()}.md`;
+            mimeType = 'text/markdown';
+        }
+        
+        const blob = new Blob([content], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+        
+        Alpine.store('app').showNotification('success', `Exported as ${format.toUpperCase()}`);
+    }
+}">
+    <div class="flex items-center justify-between mb-6">
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-white" x-text="$t('tools_title')"></h2>
+        <div class="text-sm text-gray-600 dark:text-gray-400">
+            🔧 <span x-text="$t('tools_debugger')"></span>
+        </div>
+    </div>
+    
+    <!-- Tool Selection -->
+    <div class="mb-6">
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <span x-text="$t('tools_select')"></span>
+        </label>
+        <select 
+            x-model="selectedTool"
+            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+        >
+            <option value="codebase-retrieval">codebase-retrieval</option>
+        </select>
+    </div>
+    
+    <!-- Tool Arguments -->
+    <div class="mb-6">
+        <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3" x-text="$t('tools_arguments')"></h3>
+        
+        <!-- codebase-retrieval arguments -->
+        <div x-show="selectedTool === 'codebase-retrieval'" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    project_root_path <span class="text-red-500">*</span>
+                </label>
+                <input 
+                    type="text"
+                    x-model="toolArgs['codebase-retrieval'].project_root_path"
+                    placeholder="/path/to/project"
+                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-mono text-sm"
+                />
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    query <span class="text-red-500">*</span>
+                </label>
+                <textarea 
+                    x-model="toolArgs['codebase-retrieval'].query"
+                    rows="3"
+                    placeholder="Enter your search query..."
+                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                ></textarea>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Execute Button -->
+    <div class="mb-6">
+        <button 
+            @click="executeTool()"
+            :disabled="executing || !toolArgs[selectedTool].project_root_path || !toolArgs[selectedTool].query"
+            class="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-md transition-colors duration-200 flex items-center justify-center gap-2 font-semibold"
+        >
+            <template x-if="executing">
+                <div class="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full"></div>
+            </template>
+            <template x-if="!executing">
+                <span>▶️</span>
+            </template>
+            <span x-text="executing ? $t('tools_executing') : $t('tools_execute')"></span>
+        </button>
+    </div>
+    
+    <!-- Error Display -->
+    <div x-show="error" class="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+        <div class="flex items-start gap-3">
+            <span class="text-red-600 dark:text-red-400 text-xl">❌</span>
+            <div class="flex-1">
+                <h4 class="text-sm font-semibold text-red-800 dark:text-red-300 mb-1" x-text="$t('tools_error')"></h4>
+                <p class="text-sm text-red-700 dark:text-red-400" x-text="error"></p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Result Display -->
+    <div x-show="result" class="mb-6">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300" x-text="$t('tools_result')"></h3>
+            <div class="flex gap-2">
+                <button 
+                    @click="Utils.copyToClipboard(JSON.stringify(result, null, 2))"
+                    class="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded transition-colors duration-200"
+                    :title="$t('copy')"
+                >
+                    📋 <span x-text="$t('copy')"></span>
+                </button>
+                <button 
+                    @click="exportResult('json')"
+                    class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors duration-200"
+                >
+                    📄 JSON
+                </button>
+                <button 
+                    @click="exportResult('markdown')"
+                    class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded transition-colors duration-200"
+                >
+                    📝 Markdown
+                </button>
+            </div>
+        </div>
+        
+        <div class="bg-gray-900 dark:bg-black rounded-md p-4 overflow-x-auto">
+            <pre class="text-green-400 text-xs font-mono" x-text="JSON.stringify(result, null, 2)"></pre>
+        </div>
+    </div>
+    
+    <!-- Usage Hint -->
+    <div class="text-xs text-gray-500 dark:text-gray-400 p-3 bg-gray-50 dark:bg-gray-900 rounded-md">
+        <p class="mb-1">💡 <span x-text="$t('tools_hint')"></span></p>
+        <ul class="list-disc list-inside space-y-1 ml-4">
+            <li x-text="$t('tools_hint_1')"></li>
+            <li x-text="$t('tools_hint_2')"></li>
+            <li x-text="$t('tools_hint_3')"></li>
+        </ul>
+    </div>
+</div>

@@ -1,0 +1,45 @@
+<!-- Navigation Component -->
+<!-- Main tab navigation for switching between pages -->
+<nav class="bg-white dark:bg-gray-800 rounded-lg shadow mb-6">
+    <div class="flex flex-wrap gap-2 p-4">
+        <!-- Home Tab -->
+        <button 
+            @click="$store.app.setPage('home')"
+            :class="$store.app.currentPage === 'home' ? 'nav-tab-active' : 'nav-tab-inactive'"
+            class="flex items-center gap-2 transition-all duration-200 transform hover:scale-105"
+            :aria-current="$store.app.currentPage === 'home' ? 'page' : false"
+        >
+            <span x-text="$t('nav_home')"></span>
+        </button>
+        
+        <!-- Enhance Prompt Tab -->
+        <button 
+            @click="$store.app.setPage('enhance-prompt')"
+            :class="$store.app.currentPage === 'enhance-prompt' ? 'nav-tab-active' : 'nav-tab-inactive'"
+            class="flex items-center gap-2 transition-all duration-200 transform hover:scale-105"
+            :aria-current="$store.app.currentPage === 'enhance-prompt' ? 'page' : false"
+        >
+            <span x-text="$t('nav_enhance_prompt')"></span>
+        </button>
+        
+        <!-- Configuration Tab -->
+        <button 
+            @click="$store.app.setPage('config')"
+            :class="$store.app.currentPage === 'config' ? 'nav-tab-active' : 'nav-tab-inactive'"
+            class="flex items-center gap-2 transition-all duration-200 transform hover:scale-105"
+            :aria-current="$store.app.currentPage === 'config' ? 'page' : false"
+        >
+            <span x-text="$t('nav_config')"></span>
+        </button>
+        
+        <!-- Logs Tab -->
+        <button 
+            @click="$store.app.setPage('logs')"
+            :class="$store.app.currentPage === 'logs' ? 'nav-tab-active' : 'nav-tab-inactive'"
+            class="flex items-center gap-2 transition-all duration-200 transform hover:scale-105"
+            :aria-current="$store.app.currentPage === 'logs' ? 'page' : false"
+        >
+            <span x-text="$t('nav_logs')"></span>
+        </button>
+    </div>
+</nav>

@@ -1,0 +1,305 @@
+<!-- Advanced Options Tab Content -->
+<!-- Project path, file tree, file selection, and guidelines configuration -->
+
+<div class="advanced-options-content advanced-options-loaded space-y-6">
+    
+    <!-- Prompt Editor Section -->
+    <div class="space-y-3">
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+            <span class="flex items-center gap-2">
+                <span>✏️</span>
+                <span>Prompt Editor</span>
+            </span>
+        </label>
+        <div class="border border-gray-300 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
+            <div id="prompt-editor-content-advanced"></div>
+            <script>
+                // Load prompt editor on demand
+                if (!document.querySelector('#prompt-editor-content-advanced .prompt-editor-content')) {
+                    Utils.loadComponent('enhance-prompt/prompt-editor').then(html => {
+                        document.querySelector('#prompt-editor-content-advanced').innerHTML = html;
+                        console.log('✅ Prompt Editor loaded in Advanced Options');
+                    });
+                }
+            </script>
+        </div>
+    </div>
+    
+    <!-- Tree Depth Setting -->
+    <div class="space-y-3">
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+            <span class="flex items-center gap-2">
+                <span>🌲</span>
+                <span>Project Tree Depth</span>
+            </span>
+        </label>
+        <div class="flex items-center gap-4">
+            <input 
+                type="range"
+                min="2"
+                max="8"
+                step="1"
+                x-model.number="$store.app.enhanceForm.treeDepth"
+                @input="$store.app.persistEnhanceForm()"
+                class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+            />
+            <span class="text-sm font-medium text-gray-700 dark:text-gray-300 w-12 text-center" 
+                  x-text="$store.app.enhanceForm.treeDepth || 5"></span>
+        </div>
+        <p class="text-xs text-gray-500 dark:text-gray-400">
+            Controls how deep the directory tree will scan (2-8 levels). Higher values show more nested directories but may take longer.
+        </p>
+    </div>
+
+    <!-- Project Path Section -->
+    <div class="space-y-3">
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+            <span class="flex items-center gap-2">
+                <span>📁</span>
+                <span x-text="t('project_path_label')"></span>
+            </span>
+        </label>
+        <div class="flex gap-2">
+            <input 
+                type="text"
+                x-model="$store.app.enhanceForm.projectPath"
+                @input="validateProjectPath(); $store.app.persistEnhanceForm()"
+                @blur="validateProjectPath()"
+                class="flex-1 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-2.5 transition-colors"
+                :class="$store.app.formValidation.pathError ? 'border-red-500 dark:border-red-500 focus:border-red-500 focus:ring-red-500' : ''"
+                :placeholder="t('projects_path_placeholder')"
+            />
+            <button 
+                @click="loadFileTree()"
+                :disabled="!$store.app.enhanceForm.projectPath || fileTreeLoading || $store.app.formValidation.pathError"
+                class="px-4 py-2.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200 text-sm font-medium whitespace-nowrap flex items-center gap-2"
+            >
+                <svg x-show="!fileTreeLoading" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+                <svg x-show="fileTreeLoading" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span x-text="t('load_file_tree')"></span>
+            </button>
+        </div>
+        <!-- Task 10.2: Field-level error message display -->
+        <div class="flex flex-col gap-1">
+            <p x-show="!$store.app.formValidation.pathError" class="text-xs text-gray-500 dark:text-gray-400">
+                Enter the absolute path to your project directory
+            </p>
+            <p x-show="$store.app.formValidation.pathError" class="text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                </svg>
+                <span x-text="$store.app.formValidation.pathError"></span>
+            </p>
+        </div>
+    </div>
+    
+    <!-- File Tree Section -->
+    <div x-show="fileTree && fileTree.length > 0" class="space-y-3">
+        <div class="flex justify-between items-center">
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                <span class="flex items-center gap-2">
+                    <span>🌳</span>
+                    <span>File Tree (Max 3 levels)</span>
+                </span>
+            </label>
+            <span class="text-xs text-gray-500 dark:text-gray-400">
+                <span x-text="t('selected_files')"></span>: 
+                <span class="font-semibold text-blue-600 dark:text-blue-400" x-text="$store.app.enhanceForm.selectedFiles.length"></span>
+            </span>
+        </div>
+        
+        <div class="border border-gray-300 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-900 max-h-96 overflow-y-auto">
+            <!-- Recursive File Tree Component -->
+            <template x-for="item in fileTree" :key="item.path">
+                <div x-data="fileTreeNode(item)" class="file-tree-node">
+                    <!-- Directory Node -->
+                    <template x-if="item.type === 'directory'">
+                        <div class="mb-1">
+                            <div class="flex items-center gap-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded px-2 cursor-pointer"
+                                 @click="expanded = !expanded">
+                                <!-- Expand/Collapse Arrow -->
+                                <svg class="w-4 h-4 text-gray-500 transition-transform duration-200 flex-shrink-0" 
+                                     :class="expanded ? 'rotate-90' : ''"
+                                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                </svg>
+                                <!-- Folder Icon (changes when expanded) -->
+                                <span class="text-lg flex-shrink-0" x-text="expanded ? '📂' : '📁'"></span>
+                                <!-- Directory Name -->
+                                <span class="text-sm text-gray-700 dark:text-gray-300 truncate" x-text="item.name"></span>
+                                <!-- File Count Badge -->
+                                <span class="ml-auto text-xs text-gray-500 dark:text-gray-400 flex-shrink-0" 
+                                      x-show="item.children && item.children.length > 0"
+                                      x-text="`(${item.children.length})`"></span>
+                            </div>
+                            <!-- Children (Recursive) -->
+                            <div x-show="expanded" 
+                                 x-transition:enter="transition ease-out duration-200"
+                                 x-transition:enter-start="opacity-0 transform -translate-y-2"
+                                 x-transition:enter-end="opacity-100 transform translate-y-0"
+                                 class="ml-6 border-l-2 border-gray-200 dark:border-gray-700 pl-2 mt-1">
+                                <template x-if="item.children && item.children.length > 0">
+                                    <template x-for="child in item.children" :key="child.path">
+                                        <div x-data="fileTreeNode(child)" class="file-tree-node"></div>
+                                    </template>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                    
+                    <!-- File Node -->
+                    <template x-if="item.type === 'file'">
+                        <label class="flex items-center gap-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded px-2 cursor-pointer transition-colors duration-150">
+                            <!-- Checkbox -->
+                            <input 
+                                type="checkbox"
+                                :checked="isFileSelected(item.path)"
+                                @change="toggleFileSelection(item.path)"
+                                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 focus:ring-offset-0 flex-shrink-0"
+                            />
+                            <!-- File Icon -->
+                            <span class="text-lg flex-shrink-0">📄</span>
+                            <!-- File Name -->
+                            <span class="text-sm text-gray-700 dark:text-gray-300 truncate" 
+                                  x-text="item.name"
+                                  :title="item.path"></span>
+                        </label>
+                    </template>
+                </div>
+            </template>
+            
+            <!-- Empty State -->
+            <div x-show="!fileTree || fileTree.length === 0" class="text-center py-8 text-gray-500 dark:text-gray-400">
+                <svg class="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+                </svg>
+                <p class="text-sm">No files found in this directory</p>
+            </div>
+        </div>
+        
+        <!-- File Tree Info -->
+        <div class="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+            <span>💡 Tip: Only text files matching configured extensions are shown</span>
+            <button 
+                @click="$store.app.enhanceForm.selectedFiles = []"
+                x-show="$store.app.enhanceForm.selectedFiles.length > 0"
+                class="text-blue-600 dark:text-blue-400 hover:underline"
+            >
+                Clear selection
+            </button>
+        </div>
+    </div>
+    
+    <!-- User Guidelines Section -->
+    <div class="space-y-3">
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+            <span class="flex items-center gap-2">
+                <span>📖</span>
+                <span x-text="t('user_guidelines')"></span>
+            </span>
+        </label>
+        
+        <div class="space-y-2">
+            <label class="flex items-center gap-3 p-3 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-750 cursor-pointer transition-colors">
+                <input 
+                    type="radio"
+                    name="userGuidelines"
+                    value="claude-agents"
+                    x-model="$store.app.enhanceForm.userGuidelines"
+                    @change="$store.app.persistEnhanceForm()"
+                    class="text-blue-600 focus:ring-blue-500"
+                />
+                <div class="flex-1">
+                    <div class="text-sm font-medium text-gray-700 dark:text-gray-300" x-text="t('guideline_claude_agents')"></div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400">Include CLAUDE.md and AGENTS.md from project</div>
+                </div>
+            </label>
+            
+            <label class="flex items-center gap-3 p-3 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-750 cursor-pointer transition-colors">
+                <input 
+                    type="radio"
+                    name="userGuidelines"
+                    value="custom"
+                    x-model="$store.app.enhanceForm.userGuidelines"
+                    @change="$store.app.persistEnhanceForm()"
+                    class="text-blue-600 focus:ring-blue-500"
+                />
+                <div class="flex-1">
+                    <div class="text-sm font-medium text-gray-700 dark:text-gray-300" x-text="t('guideline_custom')"></div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400">Specify a custom guideline file path</div>
+                </div>
+            </label>
+            
+            <label class="flex items-center gap-3 p-3 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-750 cursor-pointer transition-colors">
+                <input 
+                    type="radio"
+                    name="userGuidelines"
+                    value="none"
+                    x-model="$store.app.enhanceForm.userGuidelines"
+                    @change="$store.app.persistEnhanceForm()"
+                    class="text-blue-600 focus:ring-blue-500"
+                />
+                <div class="flex-1">
+                    <div class="text-sm font-medium text-gray-700 dark:text-gray-300" x-text="t('guideline_none')"></div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400">Do not include any user guidelines</div>
+                </div>
+            </label>
+        </div>
+        
+        <!-- Custom Guideline Path Input -->
+        <div x-show="$store.app.enhanceForm.userGuidelines === 'custom'" 
+             x-transition
+             class="mt-3">
+            <input 
+                type="text"
+                x-model="$store.app.enhanceForm.customGuidelinePath"
+                @input="validateCustomGuideline(); $store.app.persistEnhanceForm()"
+                @blur="validateCustomGuideline()"
+                class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-2.5 transition-colors"
+                :class="$store.app.formValidation.guidelineError ? 'border-red-500 dark:border-red-500 focus:border-red-500 focus:ring-red-500' : ''"
+                :placeholder="t('custom_guideline_path')"
+            />
+            <!-- Task 10.2: Field-level error message display -->
+            <div class="flex flex-col gap-1 mt-1">
+                <p x-show="!$store.app.formValidation.guidelineError" class="text-xs text-gray-500 dark:text-gray-400">
+                    Enter the path to your custom guideline file
+                </p>
+                <p x-show="$store.app.formValidation.guidelineError" class="text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                    </svg>
+                    <span x-text="$store.app.formValidation.guidelineError"></span>
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Workspace Guidelines Section -->
+    <div class="space-y-3">
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+            <span class="flex items-center gap-2">
+                <span>📚</span>
+                <span>Workspace Guidelines</span>
+            </span>
+        </label>
+        
+        <label class="flex items-center gap-3 p-3 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-750 cursor-pointer transition-colors">
+            <input 
+                type="checkbox"
+                x-model="$store.app.enhanceForm.includeReadme"
+                @change="$store.app.persistEnhanceForm()"
+                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <div class="flex-1">
+                <div class="text-sm font-medium text-gray-700 dark:text-gray-300" x-text="t('include_readme')"></div>
+                <div class="text-xs text-gray-500 dark:text-gray-400">Include README.md from project root</div>
+            </div>
+        </label>
+    </div>
+    
+</div>

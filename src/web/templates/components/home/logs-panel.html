@@ -1,0 +1,97 @@
+<!-- Logs Panel Component -->
+<!-- Displays real-time logs with WebSocket connection -->
+
+<div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+    <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-3">
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-white" x-text="$t('logs_title')"></h2>
+            <div class="flex items-center gap-2">
+                <div 
+                    class="w-2 h-2 rounded-full animate-pulse"
+                    :class="$store.app.wsConnected ? 'bg-green-500' : 'bg-red-500'"
+                ></div>
+                <span 
+                    class="text-sm font-medium"
+                    :class="$store.app.wsConnected ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'"
+                    x-text="$store.app.wsConnected ? $t('logs_connected') : $t('logs_disconnected')"
+                ></span>
+            </div>
+        </div>
+        
+        <button 
+            @click="mcpManager().clearLogs()"
+            class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors duration-200 flex items-center gap-2"
+            :disabled="$store.app.logs.length === 0"
+            :class="$store.app.logs.length === 0 ? 'opacity-50 cursor-not-allowed' : ''"
+        >
+            <span>🗑️</span>
+            <span x-text="$t('logs_clear')"></span>
+        </button>
+    </div>
+    
+    <!-- Log Count Info -->
+    <div class="mb-3 text-sm text-gray-600 dark:text-gray-400">
+        <span x-text="$store.app.logs.length"></span>
+        <span x-text="$t('logs_count')"></span>
+        <span x-show="$store.app.logs.length >= 500" class="ml-2 text-yellow-600 dark:text-yellow-400">
+            (⚠️ Maximum reached - older logs are being removed)
+        </span>
+    </div>
+    
+    <!-- Logs Container -->
+    <div 
+        x-ref="logsContainer"
+        class="bg-gray-900 dark:bg-black rounded-md p-4 h-96 overflow-y-auto font-mono text-sm"
+        x-init="
+            // Auto-scroll to bottom when new logs arrive
+            $watch('$store.app.logs.length', () => {
+                $nextTick(() => {
+                    if ($refs.logsContainer) {
+                        $refs.logsContainer.scrollTop = $refs.logsContainer.scrollHeight;
+                    }
+                });
+            });
+        "
+    >
+        <!-- Empty State -->
+        <div 
+            x-show="$store.app.logs.length === 0"
+            class="flex flex-col items-center justify-center h-full text-gray-500 dark:text-gray-600"
+        >
+            <span class="text-4xl mb-3">📋</span>
+            <p x-text="$t('logs_empty')"></p>
+        </div>
+        
+        <!-- Log Entries -->
+        <template x-for="(log, index) in $store.app.logs" :key="log.id || index">
+            <div 
+                class="mb-1 hover:bg-gray-800 dark:hover:bg-gray-900 px-2 py-1 rounded transition-colors duration-150"
+                :class="{
+                    'text-red-400': (log.text || log.message || '').toLowerCase().includes('error') || (log.text || log.message || '').toLowerCase().includes('failed'),
+                    'text-yellow-400': (log.text || log.message || '').toLowerCase().includes('warning') || (log.text || log.message || '').toLowerCase().includes('warn'),
+                    'text-green-400': (log.text || log.message || '').toLowerCase().includes('success') || (log.text || log.message || '').toLowerCase().includes('completed'),
+                    'text-blue-400': (log.text || log.message || '').toLowerCase().includes('info') || (log.text || log.message || '').toLowerCase().includes('starting'),
+                    'text-gray-300': !(
+                        (log.text || log.message || '').toLowerCase().includes('error') || 
+                        (log.text || log.message || '').toLowerCase().includes('failed') ||
+                        (log.text || log.message || '').toLowerCase().includes('warning') || 
+                        (log.text || log.message || '').toLowerCase().includes('warn') ||
+                        (log.text || log.message || '').toLowerCase().includes('success') || 
+                        (log.text || log.message || '').toLowerCase().includes('completed') ||
+                        (log.text || log.message || '').toLowerCase().includes('info') || 
+                        (log.text || log.message || '').toLowerCase().includes('starting')
+                    )
+                }"
+            >
+                <span x-show="log.timestamp" class="text-gray-500 mr-2" x-text="log.timestamp"></span>
+                <span x-text="log.text || log.message"></span>
+            </div>
+        </template>
+    </div>
+    
+    <!-- Auto-scroll indicator -->
+    <div class="mt-2 text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
+        <span>📌</span>
+        <span x-text="$t('logs_auto_scroll')"></span>
+    </div>
+</div>

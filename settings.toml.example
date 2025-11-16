@@ -1,0 +1,70 @@
+# ~/.acemcp/settings.toml.example
+# Copy this file to settings.toml and fill in your credentials
+
+# === 索引服务 API 配置（用于 codebase-retrieval）===
+BASE_URL = "https://d6.api.augmentcode.com/"  # 索引服务器地址
+TOKEN = "your-token-here"                      # 访问令牌（必填）
+
+# === 提示词增强服务 API 配置（用于 enhance_prompt）===
+ENHANCE_BASE_URL = "https://api.x.ai"          # X.AI API 地址
+ENHANCE_TOKEN = "your-xai-token-here"          # X.AI API Key（必填）
+MODEL = "grok-2-1212"                          # 默认模型
+CUSTOM_MODEL = ""                              # 自定义模型名
+API_TIMEOUT = 120000                           # API 请求超时时间（毫秒），默认 120 秒
+
+# === 自定义请求头（可选）===
+# 用于 OpenAI 兼容 API 的自定义 HTTP 请求头
+# [CUSTOM_HEADERS]
+# Authorization = "Bearer your-token"
+# X-Custom-Header = "value"
+
+# === 索引配置 ===
+BATCH_SIZE = 10                        # 批量上传数量（1-50）
+MAX_LINES_PER_BLOB = 800               # 单个代码块最大行数
+
+# === 文件类型配置 ===
+# 支持索引的文本文件扩展名
+TEXT_EXTENSIONS = [
+  # 编程语言
+  ".py", ".js", ".ts", ".jsx", ".tsx",
+  ".java", ".go", ".rs", ".cpp", ".c",
+  ".h", ".hpp", ".cs", ".rb", ".php",
+  ".swift", ".kt", ".scala", ".clj",
+  
+  # 配置和数据
+  ".md", ".txt", ".json", ".yaml", ".yml",
+  ".toml", ".xml", ".ini", ".conf",
+  
+  # Web 相关
+  ".html", ".css", ".scss", ".sass", ".less",
+  
+  # 脚本
+  ".sql", ".sh", ".bash", ".ps1", ".bat"
+]
+
+# === 排除模式 ===
+# 不会被索引的目录和文件模式
+EXCLUDE_PATTERNS = [
+  # 虚拟环境
+  ".venv", "venv", ".env", "env",
+  "node_modules",
+  
+  # 版本控制
+  ".git", ".svn", ".hg",
+  
+  # Python 缓存
+  "__pycache__", ".pytest_cache", ".mypy_cache",
+  ".tox", ".eggs", "*.egg-info",
+  
+  # 构建产物
+  "dist", "build", "target", "out",
+  
+  # IDE 配置
+  ".idea", ".vscode", ".vs",
+  
+  # 系统文件
+  ".DS_Store", "Thumbs.db",
+  
+  # 编译文件
+  "*.pyc", "*.pyo", "*.pyd", "*.so", "*.dll"
+]

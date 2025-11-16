@@ -1,0 +1,109 @@
+<!-- Enhance Prompt Main View Component -->
+<!-- Input/Output Comparison Layout with Responsive Design -->
+
+<div class="enhance-prompt-main-view">
+    <!-- Input/Output Comparison Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
+        <!-- Original Message Input (Left/Top) -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
+            <div class="flex justify-between items-center mb-3 sm:mb-4">
+                <h3 class="text-base sm:text-lg font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                    <span class="text-xl">📝</span>
+                    <span x-text="t('original_message')"></span>
+                </h3>
+                <span class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 font-mono" 
+                      x-text="t('character_count') + ': ' + enhanceForm.originalMessage.length"></span>
+            </div>
+            
+            <textarea 
+                x-model="enhanceForm.originalMessage"
+                @input="validateMessageInput(); watchFormChanges()"
+                rows="15"
+                class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 border resize-y transition-colors font-mono"
+                :class="formValidation.messageError ? 'border-red-500 dark:border-red-500 focus:border-red-500 focus:ring-red-500' : ''"
+                :placeholder="t('original_message_placeholder')"
+            ></textarea>
+            
+            <div class="mt-2 flex justify-between items-start">
+                <div class="flex-1">
+                    <p class="text-xs text-gray-500 dark:text-gray-400" x-text="t('original_message_hint')"></p>
+                    <p x-show="formValidation.messageError" class="text-xs text-red-600 dark:text-red-400 mt-1" x-text="formValidation.messageError"></p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Enhanced Result Output (Right/Bottom) -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
+            <div class="flex justify-between items-center mb-3 sm:mb-4">
+                <h3 class="text-base sm:text-lg font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                    <span class="text-xl">✨</span>
+                    <span x-text="t('enhanced_result')"></span>
+                </h3>
+                <button 
+                    x-show="enhanceResult && !enhanceError"
+                    @click="copyEnhancedPrompt()"
+                    class="px-3 py-1.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors duration-200 text-xs sm:text-sm font-medium flex items-center gap-1.5"
+                    :title="t('copy_to_clipboard')"
+                >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                    </svg>
+                    <span class="hidden sm:inline" x-text="t('copy')"></span>
+                    <span class="sm:hidden">📋</span>
+                </button>
+            </div>
+            
+            <!-- Result Display Area -->
+            <div class="relative">
+                <!-- Loading State -->
+                <div x-show="enhanceExecuting" class="absolute inset-0 bg-gray-900 dark:bg-black rounded-md flex items-center justify-center">
+                    <div class="text-center">
+                        <svg class="animate-spin h-12 w-12 text-blue-500 mx-auto mb-3" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <p class="text-blue-400 text-sm font-medium" x-text="t('enhancing')"></p>
+                    </div>
+                </div>
+                
+                <!-- Success Result -->
+                <div x-show="enhanceResult && !enhanceError && !enhanceExecuting" 
+                     class="bg-gray-900 dark:bg-black text-green-400 dark:text-green-300 rounded-md p-4 font-mono text-xs sm:text-sm overflow-y-auto whitespace-pre-wrap"
+                     style="min-height: 400px; max-height: 500px;"
+                     x-text="enhanceResult">
+                </div>
+                
+                <!-- Error Display -->
+                <div x-show="enhanceError && !enhanceExecuting" 
+                     class="bg-red-50 dark:bg-red-900/20 border-2 border-red-300 dark:border-red-700 rounded-md p-4"
+                     style="min-height: 400px;">
+                    <div class="flex items-start gap-3">
+                        <span class="text-red-600 dark:text-red-400 text-2xl">❌</span>
+                        <div class="flex-1">
+                            <h4 class="text-sm font-semibold text-red-800 dark:text-red-300 mb-2" x-text="t('enhance_error_title')"></h4>
+                            <p class="text-sm text-red-700 dark:text-red-400 whitespace-pre-wrap" x-text="enhanceError"></p>
+                            <button 
+                                @click="retryEnhancePrompt()"
+                                class="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors duration-200 text-sm font-medium"
+                                x-text="t('retry')"
+                            ></button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Empty State -->
+                <div x-show="!enhanceResult && !enhanceError && !enhanceExecuting" 
+                     class="bg-gray-900 dark:bg-black rounded-md p-4 flex items-center justify-center"
+                     style="min-height: 400px;">
+                    <div class="text-center text-gray-500 dark:text-gray-400">
+                        <svg class="w-16 h-16 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                        </svg>
+                        <p class="text-sm" x-text="t('waiting_for_enhancement')"></p>
+                        <p class="text-xs mt-2" x-text="t('enter_message_and_submit')"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
