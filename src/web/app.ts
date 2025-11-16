@@ -498,45 +498,26 @@ export function createApp(): express.Application {
         return res.status(400).json({ error: 'max_depth must be a number between 1 and 30' });
       }
       
-      // 规范化路径
+      // 验证并规范化路径（SSOT）
       let normalizedPath: string;
       try {
-        normalizedPath = normalizeProjectPath(project_path);
-        logger.info(`Project path normalized: ${project_path} -> ${normalizedPath}`);
+        normalizedPath = validateAndNormalizeProjectPath(project_path);
       } catch (error: any) {
         logger.warning(`Invalid project path: ${project_path}, error: ${error.message}`);
-        return res.status(400).json({ error: `Invalid project path: ${error.message}` });
-      }
-      
-      // 验证路径存在
-      if (!fs.existsSync(normalizedPath)) {
-        logger.warning(`Project path does not exist: ${normalizedPath}`);
-        return res.status(400).json({ error: 'Project path does not exist' });
-      }
-      
-      // 验证是目录
-      try {
-        const stats = fs.statSync(normalizedPath);
-        if (!stats.isDirectory()) {
-          logger.warning(`Project path is not a directory: ${normalizedPath}`);
-          return res.status(400).json({ error: 'Project path is not a directory' });
-        }
-      } catch (error: any) {
-        logger.warning(`Failed to stat project path: ${normalizedPath}, error: ${error.message}`);
         if (error.code === 'EACCES') {
           return res.status(403).json({ error: 'Permission denied accessing project path' });
         }
-        return res.status(400).json({ error: `Failed to access project path: ${error.message}` });
+        return res.status(400).json({ error: error.message });
       }
       
       logger.info(`Scanning directory: ${normalizedPath}, max_depth: ${max_depth}`);
       
       // 加载项目路径内的 .gitignore 规则
-      const ig = loadProjectGitignore(normalizedPath);
+      const { ig, gitignoreRoot } = loadProjectGitignore(normalizedPath);
       
       // 递归扫描文件
       const config = getConfig();
-      const files = scanDirectory(normalizedPath, max_depth, config, normalizedPath, ig);
+      const files = scanDirectory(normalizedPath, max_depth, config, normalizedPath, gitignoreRoot, ig);
       
       const fileCount = countFiles(files);
       const duration = Date.now() - startTime;
@@ -803,25 +784,13 @@ export function createApp(): express.Application {
         logger.info('Appended English language prompt');
       }
 
-      // 规范化项目路径
+      // 验证并规范化项目路径（SSOT）
       let normalizedPath: string;
       try {
-        normalizedPath = normalizeProjectPath(projectPath);
-        logger.info(`Project path normalized: ${projectPath} -> ${normalizedPath}`);
+        normalizedPath = validateAndNormalizeProjectPath(projectPath);
       } catch (error: any) {
         logger.warning(`Invalid project path: ${projectPath}, error: ${error.message}`);
-        return res.status(400).json({ error: `Invalid project path: ${error.message}` });
-      }
-
-      // 验证路径存在且为目录
-      if (!fs.existsSync(normalizedPath)) {
-        logger.warning(`Project path does not exist: ${normalizedPath}`);
-        return res.status(400).json({ error: `Project path does not exist: ${normalizedPath}` });
-      }
-
-      if (!fs.statSync(normalizedPath).isDirectory()) {
-        logger.warning(`Project path is not a directory: ${normalizedPath}`);
-        return res.status(400).json({ error: `Project path is not a directory: ${normalizedPath}` });
+        return res.status(400).json({ error: error.message });
       }
 
       logger.info(`Enhance prompt request: projectPath=${normalizedPath}, model=${model || 'default'}, selectedFiles=${selectedFiles.length}, userGuidelines=${userGuidelines}, includeReadme=${includeReadme}, messageLength=${originalMessage.length}`);
@@ -1046,40 +1015,85 @@ interface FileNode {
 }
 
 /**
- * 加载项目路径内的 .gitignore 规则
- * @param projectRoot 项目根目录
- * @returns ignore 实例
+ * 验证并规范化项目路径（SSOT - 单一真值来源）
+ * @param projectPath 原始项目路径
+ * @returns 规范化后的路径
+ * @throws 如果路径无效或不存在
  */
-function loadProjectGitignore(projectRoot: string): ReturnType<typeof ignore> {
+function validateAndNormalizeProjectPath(projectPath: string): string {
+  // 规范化路径
+  const normalizedPath = normalizeProjectPath(projectPath);
+  logger.info(`Project path normalized: ${projectPath} -> ${normalizedPath}`);
+  
+  // 验证路径存在
+  if (!fs.existsSync(normalizedPath)) {
+    throw new Error(`Project path does not exist: ${normalizedPath}`);
+  }
+  
+  // 验证是目录
+  const stats = fs.statSync(normalizedPath);
+  if (!stats.isDirectory()) {
+    throw new Error(`Project path is not a directory: ${normalizedPath}`);
+  }
+  
+  return normalizedPath;
+}
+
+/**
+ * 加载项目路径内的 .gitignore 规则（向上查找第一个 .gitignore）
+ * @param scanPath 要扫描的目录路径
+ * @returns { ig: ignore 实例, gitignoreRoot: .gitignore 所在目录 }
+ */
+function loadProjectGitignore(scanPath: string): { ig: ReturnType<typeof ignore>, gitignoreRoot: string } {
   const ig = ignore();
   
   // 始终忽略 .git 目录
   ig.add('.git');
   
-  // 读取项目根目录的 .gitignore 文件
-  const gitignorePath = path.join(projectRoot, '.gitignore');
+  // 从当前目录向上查找第一个 .gitignore 文件
+  let currentDir = path.resolve(scanPath);
+  let gitignorePath: string | null = null;
+  let gitignoreRoot: string = currentDir; // 默认为扫描路径
   
-  if (fs.existsSync(gitignorePath)) {
+  // 向上查找直到根目录
+  while (true) {
+    const candidatePath = path.join(currentDir, '.gitignore');
+    if (fs.existsSync(candidatePath)) {
+      gitignorePath = candidatePath;
+      gitignoreRoot = currentDir; // .gitignore 所在目录
+      break;
+    }
+    
+    const parentDir = path.dirname(currentDir);
+    // 已到达根目录
+    if (parentDir === currentDir) {
+      break;
+    }
+    currentDir = parentDir;
+  }
+  
+  if (gitignorePath) {
     try {
       const gitignoreContent = fs.readFileSync(gitignorePath, 'utf-8');
       ig.add(gitignoreContent);
-      logger.info(`Loaded .gitignore from: ${gitignorePath}`);
+      logger.info(`Loaded .gitignore from: ${gitignorePath} (root: ${gitignoreRoot})`);
     } catch (error: any) {
       logger.warning(`Failed to read .gitignore: ${gitignorePath}, error: ${error.message}`);
     }
   } else {
-    logger.info(`No .gitignore found in project root: ${projectRoot}`);
+    logger.info(`No .gitignore found in directory tree starting from: ${scanPath}`);
   }
   
-  return ig;
+  return { ig, gitignoreRoot };
 }
 
 /**
- * 递归扫描目录（只使用项目路径内的 .gitignore 规则）
- * @param dir 目录路径
+ * 递归扫描目录（应用 .gitignore 规则）
+ * @param dir 当前扫描的目录路径
  * @param maxDepth 最大扫描深度
  * @param config 配置对象
- * @param projectRoot 项目根目录
+ * @param scanRoot 用户输入的扫描根目录
+ * @param gitignoreRoot .gitignore 文件所在的目录
  * @param ig ignore 实例
  * @param currentDepth 当前深度（内部使用）
  * @returns 文件节点数组
@@ -1088,7 +1102,8 @@ function scanDirectory(
   dir: string,
   maxDepth: number,
   config: any,
-  projectRoot: string,
+  scanRoot: string,
+  gitignoreRoot: string,
   ig: ReturnType<typeof ignore>,
   currentDepth: number = 0
 ): FileNode[] {
@@ -1106,31 +1121,30 @@ function scanDirectory(
       try {
         const fullPath = path.join(dir, entry.name);
         
-        // 计算相对于项目根目录的路径
-        const relativePath = path.relative(projectRoot, fullPath).replace(/\\/g, '/');
+        // 关键修复：计算相对于 .gitignore 所在目录的路径
+        const relativeToGitignore = path.relative(gitignoreRoot, fullPath).replace(/\\/g, '/');
         
         // 使用 ignore 库检查是否应该忽略
         // 对于目录，需要添加尾部斜杠
-        const checkPath = entry.isDirectory() ? relativePath + '/' : relativePath;
+        const checkPath = entry.isDirectory() ? relativeToGitignore + '/' : relativeToGitignore;
         
         if (ig.ignores(checkPath)) {
+          logger.debug(`Ignored by .gitignore: ${checkPath}`);
           continue;
         }
         
         if (entry.isDirectory()) {
           // 递归扫描子目录
           try {
-            const children = scanDirectory(fullPath, maxDepth, config, projectRoot, ig, currentDepth + 1);
+            const children = scanDirectory(fullPath, maxDepth, config, scanRoot, gitignoreRoot, ig, currentDepth + 1);
             
-            // 只添加包含文件的目录
-            if (children.length > 0) {
-              files.push({
-                name: entry.name,
-                path: fullPath,
-                type: 'directory',
-                children,
-              });
-            }
+            // 总是添加目录（即使为空，前端会过滤）
+            files.push({
+              name: entry.name,
+              path: fullPath,
+              type: 'directory',
+              children,
+            });
           } catch (subdirError: any) {
             // 记录子目录扫描错误但继续处理其他目录
             logger.warning(`Failed to scan subdirectory: ${fullPath}, error: ${subdirError.message}`);
