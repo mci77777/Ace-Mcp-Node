@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "node",
+    "lib": ["ES2022"],
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "forceConsistentCasingInFileNames": true,
+    "composite": true,
+    "incremental": true,
+    "paths": {
+      "@codebase-mcp/shared": ["./packages/shared/src/index.ts"],
+      "@codebase-mcp/shared/*": ["./packages/shared/src/*"],
+      "@codebase-mcp/prompt-enhance": ["./packages/prompt-enhance/src/index.ts"],
+      "@codebase-mcp/prompt-enhance/*": ["./packages/prompt-enhance/src/*"],
+      "@codebase-mcp/retrieval": ["./packages/retrieval/src/index.ts"],
+      "@codebase-mcp/retrieval/*": ["./packages/retrieval/src/*"]
+    }
+  },
+  "exclude": ["node_modules", "dist", "build"]
+}

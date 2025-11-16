@@ -1,0 +1,591 @@
+<!-- Enhance Prompt Page - Four Block Layout -->
+<!-- Top: Project Path | Original Message -->
+<!-- Bottom: RAW Message | Enhanced Result -->
+<!-- Advanced Settings: Project Tree + Prompt Editor -->
+
+<div class="enhance-prompt-page" x-data="{
+    fileTree: null,
+    fileTreeLoading: false,
+    showAdvanced: false,
+    
+    async loadFileTree() {
+        this.fileTreeLoading = true;
+        const store = Alpine.store('app');
+        const projectPath = store.enhanceForm.projectPath;
+        
+        if (!projectPath || !projectPath.trim()) {
+            store.showNotification('error', 'Please enter a project path');
+            this.fileTreeLoading = false;
+            return;
+        }
+        
+        try {
+            // 直接调用 API（避免通过 manager 重复调用）
+            const depth = store.enhanceForm.treeDepth || 20;
+            console.log(`V4: Loading file tree with depth: ${depth}`);
+            
+            const result = await API.listFiles(projectPath.trim(), depth);
+            this.fileTree = result.files || [];
+            
+            console.log(`V4: Loaded ${this.fileTree.length} top-level items`);
+            
+            // 生成 Project Tree（只显示目录）
+            if (this.fileTree.length > 0) {
+                await mcpManager().generateProjectTree(this.fileTree);
+                store.showNotification('success', `Loaded file tree with ${this.fileTree.length} items`);
+            } else {
+                store.showNotification('warning', 'No files found in project directory');
+            }
+        } catch (error) {
+            console.error('V4: Failed to load file tree:', error);
+            store.showNotification('error', 'Failed to load file tree');
+        } finally {
+            this.fileTreeLoading = false;
+        }
+    },
+    
+    toggleFileSelection(filePath) {
+        mcpManager().toggleFileSelection(filePath);
+    },
+    
+    isFileSelected(filePath) {
+        return mcpManager().isFileSelected(filePath);
+    },
+    
+    validateProjectPath() {
+        mcpManager().validateProjectPath();
+    },
+    
+    validateCustomGuideline() {
+        mcpManager().validateCustomGuideline();
+    }
+}">
+    
+    <!-- Page Title -->
+    <div class="mb-6">
+        <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-3">
+            <span class="text-3xl">⚡</span>
+            <span x-text="$t('enhance_prompt')"></span>
+        </h2>
+        <p class="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-2">
+            Enhance your prompts with project context and guidelines
+        </p>
+    </div>
+    
+    <!-- Top Row: Original Message | Project Path (左右切换) -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+        
+        <!-- Original Message Block (左侧) -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 border border-gray-200 dark:border-gray-700">
+            <h3 class="text-base font-semibold text-gray-800 dark:text-gray-100 mb-3 flex items-center gap-2">
+                <span>📝</span>
+                <span>Original Message</span>
+                <span class="text-red-500 text-sm">*</span>
+            </h3>
+            
+            <div class="space-y-3">
+                <textarea 
+                    x-model="$store.app.enhanceForm.originalMessage"
+                    @input="$store.app.persistEnhanceForm()"
+                    class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-2.5 transition-colors resize-none"
+                    :class="$store.app.formValidation.messageError ? 'border-red-500' : ''"
+                    placeholder="Enter your message here..."
+                    rows="4"
+                ></textarea>
+                
+                <!-- Language Selector -->
+                <div class="flex items-center gap-3">
+                    <label class="text-sm text-gray-700 dark:text-gray-300 font-medium">Language:</label>
+                    <div class="flex gap-2">
+                        <button 
+                            @click="$store.app.enhanceForm.language = 'zh'; $store.app.persistEnhanceForm()"
+                            :class="$store.app.enhanceForm.language === 'zh' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'"
+                            class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors hover:opacity-80"
+                        >
+                            🇨🇳 中文
+                        </button>
+                        <button 
+                            @click="$store.app.enhanceForm.language = 'en'; $store.app.persistEnhanceForm()"
+                            :class="$store.app.enhanceForm.language === 'en' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'"
+                            class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors hover:opacity-80"
+                        >
+                            🇺🇸 English
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Enhance Button -->
+                <button 
+                    @click="mcpManager().submitEnhancePrompt()"
+                    :disabled="$store.app.enhanceExecuting"
+                    class="w-full px-4 py-2.5 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:from-blue-600 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all text-sm font-medium flex items-center justify-center gap-2 shadow-lg"
+                >
+                    <svg x-show="!$store.app.enhanceExecuting" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                    <svg x-show="$store.app.enhanceExecuting" class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span x-text="$store.app.enhanceExecuting ? 'Enhancing...' : '🚀 Enhance Prompt'"></span>
+                </button>
+                
+                <p x-show="$store.app.formValidation.messageError" class="text-xs text-red-600 dark:text-red-400">
+                    <span x-text="$store.app.formValidation.messageError"></span>
+                </p>
+            </div>
+        </div>
+        
+        <!-- Project Path Block (右侧，带 Tabs) -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden"
+             x-data="{ projectTab: 'path' }">
+            <!-- Tabs Header -->
+            <div class="flex border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                <button 
+                    @click="projectTab = 'path'"
+                    :class="projectTab === 'path' ? 'border-blue-500 text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800' : 'border-transparent text-gray-500 dark:text-gray-400'"
+                    class="px-4 py-3 text-sm font-medium border-b-2 transition-colors flex-1"
+                >
+                    📁 Project Path
+                </button>
+                <button 
+                    @click="projectTab = 'tree'"
+                    :class="projectTab === 'tree' ? 'border-blue-500 text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800' : 'border-transparent text-gray-500 dark:text-gray-400'"
+                    class="px-4 py-3 text-sm font-medium border-b-2 transition-colors flex-1"
+                    x-show="$store.app.projectTree"
+                >
+                    🌳 Tree
+                </button>
+                <button 
+                    @click="projectTab = 'options'"
+                    :class="projectTab === 'options' ? 'border-blue-500 text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800' : 'border-transparent text-gray-500 dark:text-gray-400'"
+                    class="px-4 py-3 text-sm font-medium border-b-2 transition-colors flex-1"
+                >
+                    ⚙️ Options
+                </button>
+            </div>
+            
+            <div class="p-4">
+                <!-- Path Tab -->
+                <div x-show="projectTab === 'path'" class="space-y-3">
+                    <input 
+                        type="text"
+                        x-model="$store.app.enhanceForm.projectPath"
+                        @input="validateProjectPath(); $store.app.persistEnhanceForm()"
+                        @blur="validateProjectPath()"
+                        class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-2.5 transition-colors"
+                        :class="$store.app.formValidation.pathError ? 'border-red-500' : ''"
+                        placeholder="D:\code\project"
+                    />
+                    
+                    <button 
+                        @click="loadFileTree()"
+                        :disabled="!$store.app.enhanceForm.projectPath || fileTreeLoading"
+                        class="w-full px-4 py-2.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                    >
+                        <svg x-show="!fileTreeLoading" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        <svg x-show="fileTreeLoading" class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Load Files & Generate Tree</span>
+                    </button>
+                    
+                    <p x-show="$store.app.formValidation.pathError" class="text-xs text-red-600 dark:text-red-400">
+                        <span x-text="$store.app.formValidation.pathError"></span>
+                    </p>
+                    
+                    <div x-show="$store.app.enhanceForm.selectedFiles.length > 0" 
+                         class="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                        <span x-text="$store.app.enhanceForm.selectedFiles.length"></span> file(s) selected
+                    </div>
+                </div>
+                
+                <!-- Tree Tab -->
+                <div x-show="projectTab === 'tree'" class="overflow-y-auto" style="max-height: 300px;">
+                    <div x-show="$store.app.projectTree" class="bg-gray-900 dark:bg-black rounded-md p-3">
+                        <pre class="text-blue-400 text-xs font-mono" x-text="$store.app.projectTree"></pre>
+                    </div>
+                    <div x-show="!$store.app.projectTree" class="text-xs text-gray-500 dark:text-gray-400 italic text-center py-8">
+                        Click "Load Files & Generate Tree" to see the project structure
+                    </div>
+                </div>
+                
+                <!-- Options Tab -->
+                <div x-show="projectTab === 'options'" class="space-y-4">
+                    <!-- Guidelines -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            📖 Guidelines
+                        </label>
+                        <div class="space-y-2">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input 
+                                    type="radio"
+                                    name="userGuidelines"
+                                    value="claude-agents"
+                                    x-model="$store.app.enhanceForm.userGuidelines"
+                                    @change="$store.app.persistEnhanceForm()"
+                                    class="text-blue-600 focus:ring-blue-500"
+                                />
+                                <span class="text-sm text-gray-700 dark:text-gray-300">Claude Agents (CLAUDE.md, AGENTS.md)</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input 
+                                    type="radio"
+                                    name="userGuidelines"
+                                    value="custom"
+                                    x-model="$store.app.enhanceForm.userGuidelines"
+                                    @change="$store.app.persistEnhanceForm()"
+                                    class="text-blue-600 focus:ring-blue-500"
+                                />
+                                <span class="text-sm text-gray-700 dark:text-gray-300">Custom</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input 
+                                    type="radio"
+                                    name="userGuidelines"
+                                    value="none"
+                                    x-model="$store.app.enhanceForm.userGuidelines"
+                                    @change="$store.app.persistEnhanceForm()"
+                                    class="text-blue-600 focus:ring-blue-500"
+                                />
+                                <span class="text-sm text-gray-700 dark:text-gray-300">None</span>
+                            </label>
+                        </div>
+                        
+                        <!-- Custom Guideline Path -->
+                        <div x-show="$store.app.enhanceForm.userGuidelines === 'custom'" class="mt-2">
+                            <input 
+                                type="text"
+                                x-model="$store.app.enhanceForm.customGuidelinePath"
+                                @input="$store.app.persistEnhanceForm()"
+                                class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-xs p-2"
+                                placeholder="path/to/custom-guideline.md"
+                            />
+                        </div>
+                    </div>
+                    
+                    <!-- README -->
+                    <div>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input 
+                                type="checkbox"
+                                x-model="$store.app.enhanceForm.includeReadme"
+                                @change="$store.app.persistEnhanceForm()"
+                                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                📄 Include README.md
+                            </span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bottom Row: RAW Message | Enhanced Result -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+        
+        <!-- RAW Message Block (带 Tabs) -->
+
+    
+    <!-- Bottom Row: RAW Message | Enhanced Result -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+        
+        <!-- RAW Message Block (带 Tabs) -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden"
+             x-data="{ rawTab: 'system' }">
+            <!-- Tabs Header -->
+            <div class="flex border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                <button 
+                    @click="rawTab = 'system'"
+                    :class="rawTab === 'system' ? 'border-blue-500 text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800' : 'border-transparent text-gray-500 dark:text-gray-400'"
+                    class="px-4 py-3 text-sm font-medium border-b-2 transition-colors flex-1"
+                >
+                    🧠 System Prompt
+                </button>
+                <button 
+                    @click="rawTab = 'request'"
+                    :class="rawTab === 'request' ? 'border-blue-500 text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800' : 'border-transparent text-gray-500 dark:text-gray-400'"
+                    class="px-4 py-3 text-sm font-medium border-b-2 transition-colors flex-1"
+                    x-show="$store.app.rawRequest"
+                >
+                    📦 Request Body
+                </button>
+
+            </div>
+            
+            <div class="p-4 overflow-y-auto" style="max-height: 500px;">
+                <!-- System Prompt Tab -->
+                <div x-show="rawTab === 'system'">
+                    <div class="flex justify-end mb-2">
+                        <button 
+                            x-show="$store.app.systemPrompt || $store.app.systemPromptEdit"
+                            @click="Utils.copyToClipboard($store.app.systemPrompt || $store.app.systemPromptEdit)"
+                            class="px-3 py-1.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-xs font-medium flex items-center gap-1.5"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                            </svg>
+                            <span>Copy</span>
+                        </button>
+                    </div>
+                    
+                    <div x-show="$store.app.systemPrompt || $store.app.systemPromptEdit" class="bg-gray-900 dark:bg-black rounded-md p-4">
+                        <pre class="text-cyan-400 text-xs font-mono whitespace-pre-wrap" x-text="$store.app.systemPrompt || $store.app.systemPromptEdit || 'Loading...'"></pre>
+                    </div>
+                    
+                    <div x-show="!$store.app.systemPrompt && !$store.app.systemPromptEdit" class="flex items-center justify-center h-64 text-gray-500 dark:text-gray-400">
+                        <div class="text-center">
+                            <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            <p class="text-sm">Load prompt file or enhance to see the system prompt</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Request Body Tab -->
+                <div x-show="rawTab === 'request'">
+                    <div class="flex justify-end mb-2">
+                        <button 
+                            x-show="$store.app.rawRequest"
+                            @click="Utils.copyToClipboard(JSON.stringify($store.app.rawRequest, null, 2))"
+                            class="px-3 py-1.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-xs font-medium flex items-center gap-1.5"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                            </svg>
+                            <span>Copy</span>
+                        </button>
+                    </div>
+                    
+                    <div x-show="$store.app.rawRequest" class="bg-gray-900 dark:bg-black rounded-md p-4">
+                        <pre class="text-green-400 text-xs font-mono" x-text="JSON.stringify($store.app.rawRequest, null, 2)"></pre>
+                    </div>
+                    
+                    <div x-show="!$store.app.rawRequest" class="flex items-center justify-center h-64 text-gray-500 dark:text-gray-400">
+                        <div class="text-center">
+                            <p class="text-sm">Click "Enhance Prompt" to see the request body</p>
+                        </div>
+                    </div>
+                </div>
+                
+
+            </div>
+        </div>
+        
+        <!-- Enhanced Result Block -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div class="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-base font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                        <span>✨</span>
+                        <span>Enhanced Result</span>
+                    </h3>
+                    <div class="flex items-center gap-2">
+                        <!-- View Mode Toggle -->
+                        <button 
+                            x-show="$store.app.enhanceResult && !$store.app.enhanceError"
+                            @click="$store.app.resultViewMode = $store.app.resultViewMode === 'raw' ? 'markdown' : 'raw'"
+                            class="px-3 py-1.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-xs font-medium flex items-center gap-1.5"
+                        >
+                            <span x-show="$store.app.resultViewMode === 'raw'">📝 Markdown</span>
+                            <span x-show="$store.app.resultViewMode === 'markdown'">📄 Raw</span>
+                        </button>
+                        <!-- Copy Button -->
+                        <button 
+                            x-show="$store.app.enhanceResult && !$store.app.enhanceError"
+                            @click="mcpManager().copyEnhancedPrompt()"
+                            class="px-3 py-1.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-xs font-medium flex items-center gap-1.5"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                            </svg>
+                            <span>Copy</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-4 overflow-y-auto" style="max-height: 500px;">
+                <!-- Enhanced Result Display -->
+                <div x-show="$store.app.enhanceResult && !$store.app.enhanceError">
+                    <!-- Raw Mode -->
+                    <div x-show="$store.app.resultViewMode === 'raw'" class="bg-gray-900 dark:bg-black rounded-md p-4">
+                        <pre class="text-green-400 text-xs font-mono whitespace-pre-wrap" x-text="$store.app.enhanceResult"></pre>
+                    </div>
+                    
+                    <!-- Markdown Mode -->
+                    <div x-show="$store.app.resultViewMode === 'markdown'" 
+                         class="prose prose-sm dark:prose-invert max-w-none"
+                         x-html="Utils.renderMarkdown($store.app.enhanceResult)">
+                    </div>
+                </div>
+                
+                <!-- Error State -->
+                <div x-show="$store.app.enhanceError" class="bg-red-50 dark:bg-red-900/20 border-2 border-red-200 dark:border-red-800 rounded-lg p-4">
+                    <div class="flex items-start gap-3">
+                        <svg class="w-6 h-6 text-red-600 dark:text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <div class="flex-1">
+                            <h4 class="text-sm font-semibold text-red-800 dark:text-red-300 mb-1">Error</h4>
+                            <p class="text-sm text-red-700 dark:text-red-400" x-text="$store.app.enhanceError"></p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Empty State -->
+                <div x-show="!$store.app.enhanceResult && !$store.app.enhanceError" class="flex items-center justify-center h-64 text-gray-500 dark:text-gray-400">
+                    <div class="text-center">
+                        <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                        </svg>
+                        <p class="text-sm">Click "Enhance Prompt" to see the result</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Advanced Settings (固定显示在下方) -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div class="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+            <h3 class="text-base font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                <span>⚙️</span>
+                <span>Advanced Settings</span>
+            </h3>
+        </div>
+        
+        <div class="p-4 space-y-6">
+            <!-- Tree Depth Setting -->
+            <div>
+                <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                    <span>🌲</span>
+                    <span>Project Tree Depth</span>
+                </h4>
+                <div class="flex items-center gap-4">
+                    <input 
+                        type="range"
+                        min="2"
+                        max="30"
+                        step="1"
+                        x-model.number="$store.app.enhanceForm.treeDepth"
+                        @input="$store.app.persistEnhanceForm()"
+                        class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+                    />
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300 w-12 text-center px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded" 
+                          x-text="$store.app.enhanceForm.treeDepth || 20"></span>
+                </div>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                    Controls how deep the directory tree will scan (2-30 levels, default 20). Higher values show more nested directories.
+                </p>
+            </div>
+            
+            <!-- Prompt Editor Section -->
+                <div x-data="{ 
+                    promptMode: 'default',
+                    customPromptName: ''
+                }">
+                    <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                        <span>✏️</span>
+                        <span>Prompt Editor</span>
+                    </h4>
+                    
+                    <div class="space-y-3">
+                        <!-- Prompt Mode Selection -->
+                        <div class="flex gap-2">
+                            <button 
+                                @click="promptMode = 'default'; mcpManager().loadPromptFile('prompt.txt')"
+                                :class="promptMode === 'default' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'"
+                                class="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                            >
+                                Default Prompt
+                            </button>
+                            <button 
+                                @click="promptMode = 'custom'"
+                                :class="promptMode === 'custom' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'"
+                                class="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                            >
+                                Custom Prompt
+                            </button>
+                        </div>
+                        
+                        <!-- Custom Prompt Name Input -->
+                        <div x-show="promptMode === 'custom'" class="flex gap-2">
+                            <input 
+                                type="text"
+                                x-model="customPromptName"
+                                placeholder="Enter custom prompt name (e.g., my-prompt)"
+                                class="flex-1 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-xs p-2"
+                            />
+                            <button 
+                                @click="if(customPromptName) mcpManager().loadPromptFile(customPromptName + '.txt')"
+                                class="px-3 py-1.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-xs font-medium"
+                            >
+                                Load
+                            </button>
+                        </div>
+                        
+                        <!-- Prompt Editor Textarea -->
+                        <div>
+                            <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                                <span x-show="promptMode === 'default'">System Prompt (prompt/prompt.txt)</span>
+                                <span x-show="promptMode === 'custom'">Custom Prompt (<span x-text="customPromptName || 'unnamed'"></span>.txt)</span>
+                            </label>
+                            <textarea 
+                                x-model="$store.app.systemPromptEdit"
+                                @input="$store.app.systemPrompt = $store.app.systemPromptEdit"
+                                class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-xs p-2.5 font-mono resize-none"
+                                rows="10"
+                                placeholder="Edit system prompt here..."
+                            ></textarea>
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="flex gap-2">
+                            <button 
+                                @click="promptMode === 'default' ? mcpManager().loadPromptFile('prompt.txt') : (customPromptName && mcpManager().loadPromptFile(customPromptName + '.txt'))"
+                                class="px-3 py-1.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-xs font-medium flex items-center gap-1"
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                </svg>
+                                Reload
+                            </button>
+                            <button 
+                                @click="promptMode === 'default' ? mcpManager().savePromptFile('prompt.txt', $store.app.systemPromptEdit) : (customPromptName && mcpManager().savePromptFile(customPromptName + '.txt', $store.app.systemPromptEdit))"
+                                class="px-3 py-1.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-xs font-medium flex items-center gap-1"
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path>
+                                </svg>
+                                Save
+                            </button>
+                            <button 
+                                x-show="promptMode === 'custom'"
+                                @click="$store.app.systemPromptEdit = ''; customPromptName = ''"
+                                class="px-3 py-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-xs font-medium flex items-center gap-1"
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                </svg>
+                                Clear
+                            </button>
+                        </div>
+                        
+                        <!-- Info Text -->
+                        <p class="text-xs text-gray-500 dark:text-gray-400 italic">
+                            💡 Tip: Edit the prompt here and it will be reflected in RAW Message in real-time
+                        </p>
+                    </div>
+                </div>
+        </div>
+    </div>
+    
+</div>

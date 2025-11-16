@@ -1,0 +1,37 @@
+<!-- Notification Component -->
+<!-- Displays success, error, and warning notifications -->
+<div 
+    x-data="{ show: false, type: 'success', message: '' }"
+    x-init="$watch('$store.app.notification.show', value => { show = value; type = $store.app.notification.type; message = $store.app.notification.message; })"
+    x-show="show"
+    x-transition:enter="animate-slide-in"
+    x-transition:leave="animate-slide-out"
+    class="notification"
+    x-cloak
+>
+    <div 
+        :class="{
+            'notification-success': type === 'success',
+            'notification-error': type === 'error',
+            'notification-warning': type === 'warning'
+        }"
+        class="flex items-center gap-3 shadow-lg"
+    >
+        <!-- Icon -->
+        <span class="text-2xl" x-text="type === 'success' ? '✅' : type === 'error' ? '❌' : '⚠️'"></span>
+        
+        <!-- Message -->
+        <div class="flex-1">
+            <p class="font-semibold" x-text="type === 'success' ? $t('success') : type === 'error' ? $t('error') : $t('warning')"></p>
+            <p class="text-sm" x-text="message"></p>
+        </div>
+        
+        <!-- Close button -->
+        <button 
+            @click="$store.app.notification.show = false"
+            class="text-white hover:text-gray-200 text-xl"
+        >
+            ✕
+        </button>
+    </div>
+</div>

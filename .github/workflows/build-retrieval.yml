@@ -1,0 +1,133 @@
+name: Build Retrieval
+
+on:
+  push:
+    tags:
+      - 'retrieval-v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build shared package
+        run: npm run build:shared
+      
+      - name: Build retrieval package
+        run: npm run build:retrieval
+      
+      - name: Verify build output
+        run: |
+          if [ -f "packages/retrieval/dist/index.js" ]; then
+            echo "✓ Build output generated successfully"
+            echo "Main entry: packages/retrieval/dist/index.js"
+            ls -lh packages/retrieval/dist/
+          else
+            echo "✗ Build output not found"
+            exit 1
+          fi
+      
+      - name: Run tests (if available)
+        run: npm run test:retrieval || echo "No tests configured"
+        continue-on-error: true
+      
+      - name: Create tarball
+        run: |
+          cd packages/retrieval
+          npm pack
+          mv *.tgz ../../codebase-mcp-retrieval-${{ github.ref_name }}.tgz
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            codebase-mcp-retrieval-${{ github.ref_name }}.tgz
+          draft: false
+          prerelease: false
+          name: Codebase Retrieval ${{ github.ref_name }}
+          body: |
+            ## Codebase Retrieval MCP Server
+            
+            ### 📦 Installation
+            
+            **From tarball**:
+            ```bash
+            npm install -g codebase-mcp-retrieval-${{ github.ref_name }}.tgz
+            ```
+            
+            **From npm** (if published):
+            ```bash
+            npm install -g @codebase-mcp/retrieval
+            ```
+            
+            ### 🚀 Quick Start
+            
+            **As MCP Server** (stdio mode):
+            ```bash
+            npx @codebase-mcp/retrieval
+            ```
+            
+            **With Web Management UI**:
+            ```bash
+            npx @codebase-mcp/retrieval --web-port 8091
+            ```
+            
+            ### 🔧 MCP Client Configuration
+            
+            **Claude Desktop** (`claude_desktop_config.json`):
+            ```json
+            {
+              "mcpServers": {
+                "codebase-retrieval": {
+                  "command": "npx",
+                  "args": ["@codebase-mcp/retrieval"]
+                }
+              }
+            }
+            ```
+            
+            ### 📝 Configuration
+            - Config file: `~/.codebase-mcp/settings.toml`
+            - Index data: `~/.codebase-mcp/data/projects.json`
+            - Logs: `~/.codebase-mcp/log/`
+            
+            ### 🔧 Features
+            - Semantic code search via MCP protocol
+            - Incremental indexing (SHA-256 deduplication)
+            - Cross-platform path support (Windows/WSL/Unix)
+            - Web management interface (optional)
+            - Real-time log broadcasting
+            - Multi-encoding support (UTF-8, GBK, GB2312, Latin-1)
+            
+            ### 📖 Documentation
+            See [README.md](https://github.com/${{ github.repository }}/blob/main/packages/retrieval/README.md) for detailed usage instructions.
+            
+            ---
+            **Tag**: `${{ github.ref_name }}`  
+            **Commit**: `${{ github.sha }}`
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      # Optional: Publish to npm
+      # Uncomment the following step to enable npm publishing
+      # - name: Publish to npm
+      #   if: startsWith(github.ref, 'refs/tags/retrieval-v') && !contains(github.ref, '-')
+      #   run: |
+      #     cd packages/retrieval
+      #     echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+      #     npm publish --access public
+      #   env:
+      #     NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+

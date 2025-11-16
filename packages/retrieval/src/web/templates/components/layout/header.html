@@ -1,0 +1,140 @@
+<!-- Header Component -->
+<!-- Displays title, theme toggle, and language selector -->
+<header class="bg-white dark:bg-gray-800 shadow-md sticky top-0 z-30">
+    <div class="container mx-auto px-6 py-4">
+        <div class="flex items-center justify-between">
+            <!-- Logo and Title -->
+            <div class="flex items-center gap-3">
+                <div class="text-3xl">🔍</div>
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100" x-text="$t('title')"></h1>
+                    <p class="text-sm text-gray-600 dark:text-gray-400" x-text="$t('subtitle')"></p>
+                </div>
+            </div>
+            
+            <!-- Controls -->
+            <div class="flex items-center gap-4">
+                <!-- API Config Quick Edit -->
+                <div class="flex items-center gap-2" x-data="{ showApiEdit: false }">
+                    <button 
+                        @click="showApiEdit = !showApiEdit"
+                        class="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200"
+                        :class="showApiEdit ? 'bg-blue-100 dark:bg-blue-900' : ''"
+                        title="API Configuration">
+                        <svg class="w-6 h-6 text-gray-800 dark:text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                    </button>
+                    
+                    <!-- API Config Dropdown -->
+                    <div x-show="showApiEdit" 
+                         @click.away="showApiEdit = false"
+                         x-transition:enter="transition ease-out duration-200"
+                         x-transition:enter-start="opacity-0 scale-95"
+                         x-transition:enter-end="opacity-100 scale-100"
+                         class="absolute top-16 right-0 mt-2 w-96 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 p-4 z-50"
+                         style="display: none;">
+                        <h4 class="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-3 flex items-center gap-2">
+                            <span>🔧</span>
+                            <span>API Configuration</span>
+                        </h4>
+                        
+                        <!-- Index API Config -->
+                        <div class="mb-4 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                            <div class="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">Retrieval Service</div>
+                            <div class="space-y-2">
+                                <div>
+                                    <label class="text-xs text-gray-500 dark:text-gray-400">Base URL</label>
+                                    <input type="text" 
+                                           x-model="$store.app.config.base_url"
+                                           class="w-full text-xs p-1.5 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 font-mono"
+                                           placeholder="https://api.example.com" />
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-500 dark:text-gray-400">Token</label>
+                                    <input type="password" 
+                                           x-model="$store.app.config.token"
+                                           class="w-full text-xs p-1.5 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 font-mono"
+                                           placeholder="••••••••" />
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex gap-2">
+                            <button @click="API.updateConfig($store.app.config).then(() => { $store.app.showNotification('success', 'Config saved'); showApiEdit = false; }).catch(err => $store.app.showNotification('error', 'Save failed'))"
+                                    class="flex-1 px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium">
+                                Save
+                            </button>
+                            <button @click="$store.app.setPage('config'); showApiEdit = false;"
+                                    class="px-3 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm font-medium">
+                                Full Config →
+                            </button>
+                        </div>
+                        
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
+                            💡 For advanced settings (batch size, extensions, etc.), go to Config page
+                        </p>
+                    </div>
+                </div>
+                
+                <!-- Keyboard Shortcuts Help Button -->
+                <button 
+                    @click="$store.app.showKeyboardHelp = true"
+                    class="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200"
+                    :aria-label="$t('keyboard_shortcuts')"
+                    title="Keyboard Shortcuts (?)">
+                    <svg class="w-6 h-6 text-gray-800 dark:text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </button>
+                
+                <!-- Language Selector -->
+                <div class="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                    <button 
+                        @click="$store.app.setLanguage('zh')"
+                        :class="$store.app.lang === 'zh' ? 'bg-white dark:bg-gray-600 shadow' : 'hover:bg-gray-200 dark:hover:bg-gray-600'"
+                        class="px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200"
+                        :aria-label="$t('language_chinese')"
+                    >
+                        🇨🇳 中文
+                    </button>
+                    <button 
+                        @click="$store.app.setLanguage('en')"
+                        :class="$store.app.lang === 'en' ? 'bg-white dark:bg-gray-600 shadow' : 'hover:bg-gray-200 dark:hover:bg-gray-600'"
+                        class="px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200"
+                        :aria-label="$t('language_english')"
+                    >
+                        🇺🇸 EN
+                    </button>
+                </div>
+                
+                <!-- Theme Toggle -->
+                <button 
+                    @click="$store.app.toggleTheme()"
+                    class="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200"
+                    :aria-label="$store.app.theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'"
+                >
+                    <svg 
+                        x-show="$store.app.theme === 'light'" 
+                        class="w-6 h-6 text-gray-800" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                    >
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                    </svg>
+                    <svg 
+                        x-show="$store.app.theme === 'dark'" 
+                        class="w-6 h-6 text-yellow-400" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                    >
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+</header>

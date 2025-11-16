@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Codebase Retrieval Management</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="/static/styles/main.css">
+    
+    <!-- Load utility scripts before Alpine.js -->
+    <script src="/static/scripts/state.js" onerror="console.error('Failed to load state.js')"></script>
+    <script src="/static/scripts/utils.js" onerror="console.error('Failed to load utils.js')"></script>
+    <script src="/static/scripts/i18n.js" onerror="console.error('Failed to load i18n.js')"></script>
+    <script src="/static/scripts/api.js" onerror="console.error('Failed to load api.js')"></script>
+    
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 transition-colors">
+    <!-- Main Application Container -->
+    <div x-data="mcpManager()" x-init="init()" class="min-h-screen">
+        
+        <!-- Header Component -->
+        <div id="header-container"></div>
+        
+        <!-- Main Content Container -->
+        <div class="container mx-auto p-4 sm:p-6">
+            
+            <!-- Navigation Component -->
+            <div id="navigation-container"></div>
+            
+            <!-- Home Page -->
+            <div x-show="$store.app.currentPage === 'home'" x-cloak>
+                <!-- Status Cards -->
+                <div id="status-cards-container"></div>
+                
+                <!-- Main Content: 3-Column Layout -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">
+                    <!-- Tool Debugger (Left Column) -->
+                    <div id="tool-debugger-container"></div>
+                    
+                    <!-- Logs Panel (Middle Column) -->
+                    <div id="home-logs-container"></div>
+                    
+                    <!-- Projects List (Right Column) -->
+                    <div id="projects-list-container"></div>
+                </div>
+            </div>
+            
+            <!-- Config Page -->
+            <div x-show="$store.app.currentPage === 'config'" x-cloak>
+                <div id="config-page-container"></div>
+            </div>
+            
+            <!-- Logs Page -->
+            <div x-show="$store.app.currentPage === 'logs'" x-cloak>
+                <div id="logs-page-container"></div>
+            </div>
+            
+        </div>
+        
+        <!-- Notification Component -->
+        <div id="notification-container"></div>
+        
+        <!-- Keyboard Help Modal -->
+        <div id="keyboard-help-modal-container"></div>
+        
+    </div>
+    
+    <!-- Load App Script -->
+    <script src="/static/scripts/app.js" onerror="console.error('Failed to load app.js')"></script>
+    
+    <!-- Component Loading Script -->
+    <script>
+        // Global error handlers
+        window.addEventListener('error', (event) => {
+            console.error('Global error:', event.error);
+            if (window.Alpine && Alpine.store('app')) {
+                Alpine.store('app').showNotification('error', 'An unexpected error occurred');
+            }
+        });
+        
+        window.addEventListener('unhandledrejection', (event) => {
+            console.error('Unhandled promise rejection:', event.reason);
+            if (window.Alpine && Alpine.store('app')) {
+                Alpine.store('app').showNotification('error', 'An unexpected error occurred');
+            }
+        });
+        
+        // Load all components when Alpine is ready
+        document.addEventListener('alpine:initialized', async () => {
+            console.log('Alpine.js fully initialized, loading components...');
+            
+            try {
+                // Load layout components first
+                await Promise.all([
+                    Utils.injectComponent('layout/header', 'header-container'),
+                    Utils.injectComponent('layout/navigation', 'navigation-container'),
+                    Utils.injectComponent('shared/notification', 'notification-container'),
+                    Utils.injectComponent('shared/keyboard-help-modal', 'keyboard-help-modal-container')
+                ]);
+                console.log('✅ Layout components loaded');
+                
+                // Load home page components
+                await Promise.all([
+                    Utils.injectComponent('home/status-cards', 'status-cards-container'),
+                    Utils.injectComponent('home/tool-debugger', 'tool-debugger-container'),
+                    Utils.injectComponent('home/logs-panel', 'home-logs-container'),
+                    Utils.injectComponent('home/projects-list', 'projects-list-container')
+                ]);
+                console.log('✅ Home page components loaded');
+                
+                // Load config page component
+                await Utils.injectComponent('home/config-panel', 'config-page-container');
+                console.log('✅ Config page component loaded');
+                
+                // Load logs page component
+                await Utils.injectComponent('home/logs-panel', 'logs-page-container');
+                console.log('✅ Logs page component loaded');
+                
+                console.log('✅ All components loaded successfully');
+                
+            } catch (error) {
+                console.error('❌ Failed to load components:', error);
+                if (window.Alpine && Alpine.store('app')) {
+                    Alpine.store('app').showNotification('error', 'Failed to load some components');
+                }
+            }
+        });
+    </script>
+</body>
+</html>

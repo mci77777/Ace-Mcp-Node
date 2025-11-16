@@ -1,0 +1,187 @@
+<!-- Projects List Component -->
+<!-- Displays indexed projects with management actions -->
+
+<div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6" x-data="{ 
+    selectedProject: null,
+    showDetailsModal: false,
+    projectDetails: null,
+    loadingDetails: false
+}">
+    <div class="flex items-center justify-between mb-6">
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-white" x-text="$t('projects_title')"></h2>
+        <div class="text-sm text-gray-600 dark:text-gray-400">
+            <span x-text="$t('projects_total')"></span>: 
+            <span class="font-semibold" x-text="$store.app.projects.length"></span>
+        </div>
+    </div>
+    
+    <!-- Add Project Form -->
+    <div class="mb-6 p-4 bg-gray-50 dark:bg-gray-900 rounded-md">
+        <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3" x-text="$t('projects_add')"></h3>
+        <div class="flex gap-3" x-data="{ newProjectPath: '' }">
+            <input 
+                type="text"
+                x-model="newProjectPath"
+                @keydown.enter="await mcpManager().checkProject(newProjectPath); newProjectPath = ''"
+                :placeholder="$t('projects_path_placeholder')"
+                class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+            />
+            <button 
+                @click="await mcpManager().checkProject(newProjectPath); newProjectPath = ''"
+                :disabled="!newProjectPath.trim()"
+                class="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-md transition-colors duration-200 flex items-center gap-2"
+            >
+                <span>➕</span>
+                <span x-text="$t('projects_add_button')"></span>
+            </button>
+        </div>
+    </div>
+    
+    <!-- Projects List -->
+    <template x-if="$store.app.projects.length === 0">
+        <div class="text-center py-12 text-gray-500 dark:text-gray-400">
+            <div class="text-6xl mb-4">📂</div>
+            <p class="text-lg" x-text="$t('projects_empty')"></p>
+            <p class="text-sm mt-2" x-text="$t('projects_empty_hint')"></p>
+        </div>
+    </template>
+    
+    <div class="space-y-3">
+        <template x-for="project in $store.app.projects" :key="project.path">
+            <div class="border border-gray-200 dark:border-gray-700 rounded-md p-4 hover:border-blue-500 dark:hover:border-blue-400 transition-colors">
+                <div class="flex items-center justify-between">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-3 mb-2">
+                            <span class="text-2xl">📁</span>
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white truncate" x-text="project.path"></h3>
+                        </div>
+                        <div class="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+                            <div class="flex items-center gap-1">
+                                <span>📄</span>
+                                <span x-text="project.file_count || 0"></span>
+                                <span x-text="$t('projects_files')"></span>
+                            </div>
+                            <div class="flex items-center gap-1">
+                                <span>🔢</span>
+                                <span x-text="project.blob_count || 0"></span>
+                                <span x-text="$t('projects_blobs')"></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="flex items-center gap-2">
+                        <button 
+                            @click="
+                                selectedProject = project;
+                                showDetailsModal = true;
+                                loadingDetails = true;
+                                API.getProjectDetails(project.path)
+                                    .then(data => { projectDetails = data; })
+                                    .catch(err => { $store.app.showNotification('error', Utils.parseError(err)); })
+                                    .finally(() => { loadingDetails = false; });
+                            "
+                            class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors duration-200"
+                            :title="$t('projects_details')"
+                        >
+                            <span>ℹ️</span>
+                        </button>
+                        <button 
+                            @click="await mcpManager().reindexProject(project.path)"
+                            class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded transition-colors duration-200"
+                            :title="$t('projects_reindex')"
+                        >
+                            <span>🔄</span>
+                        </button>
+                        <button 
+                            @click="await mcpManager().deleteProject(project.path)"
+                            class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded transition-colors duration-200"
+                            :title="$t('projects_delete')"
+                        >
+                            <span>🗑️</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
+    
+    <!-- Project Details Modal -->
+    <div 
+        x-show="showDetailsModal"
+        @click.self="showDetailsModal = false"
+        @keydown.escape.window="showDetailsModal = false"
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+        style="display: none;"
+    >
+        <div 
+            @click.stop
+            class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+        >
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-xl font-bold text-gray-900 dark:text-white" x-text="$t('projects_details_title')"></h3>
+                <button 
+                    @click="showDetailsModal = false"
+                    class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-2xl"
+                >
+                    ✕
+                </button>
+            </div>
+            
+            <!-- Modal Body -->
+            <div class="flex-1 overflow-y-auto p-6">
+                <template x-if="loadingDetails">
+                    <div class="flex items-center justify-center py-12">
+                        <div class="animate-spin w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full"></div>
+                    </div>
+                </template>
+                
+                <template x-if="!loadingDetails && projectDetails">
+                    <div class="space-y-4">
+                        <div>
+                            <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2" x-text="$t('projects_path')"></h4>
+                            <p class="text-sm text-gray-900 dark:text-white font-mono bg-gray-100 dark:bg-gray-900 p-2 rounded" x-text="selectedProject?.path"></p>
+                        </div>
+                        
+                        <div>
+                            <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2" x-text="$t('projects_stats')"></h4>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="bg-gray-50 dark:bg-gray-900 p-3 rounded">
+                                    <p class="text-xs text-gray-600 dark:text-gray-400" x-text="$t('projects_files')"></p>
+                                    <p class="text-2xl font-bold text-blue-600 dark:text-blue-400" x-text="projectDetails.file_count || 0"></p>
+                                </div>
+                                <div class="bg-gray-50 dark:bg-gray-900 p-3 rounded">
+                                    <p class="text-xs text-gray-600 dark:text-gray-400" x-text="$t('projects_blobs')"></p>
+                                    <p class="text-2xl font-bold text-green-600 dark:text-green-400" x-text="projectDetails.blob_count || 0"></p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div x-show="projectDetails.file_type_stats">
+                            <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2" x-text="$t('projects_file_types')"></h4>
+                            <div class="space-y-2">
+                                <template x-for="[ext, count] in Object.entries(projectDetails.file_type_stats || {})" :key="ext">
+                                    <div class="flex items-center justify-between text-sm">
+                                        <span class="text-gray-700 dark:text-gray-300 font-mono" x-text="ext"></span>
+                                        <span class="text-gray-600 dark:text-gray-400" x-text="count"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+            
+            <!-- Modal Footer -->
+            <div class="flex justify-end gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
+                <button 
+                    @click="showDetailsModal = false"
+                    class="px-6 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-md transition-colors duration-200"
+                >
+                    <span x-text="$t('close')"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

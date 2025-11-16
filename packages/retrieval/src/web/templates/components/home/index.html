@@ -1,0 +1,45 @@
+<!-- Home Page Component -->
+<!-- Main home page that integrates all home sub-components -->
+
+<div class="home-page">
+    <!-- Status Cards -->
+    <div id="home-status-cards"></div>
+    
+    <!-- Configuration Panel -->
+    <div id="home-config-panel"></div>
+    
+    <!-- Projects List -->
+    <div id="home-projects-list"></div>
+    
+    <!-- Logs Panel -->
+    <div id="home-logs-panel"></div>
+    
+    <!-- Tool Debugger -->
+    <div id="home-tool-debugger"></div>
+</div>
+
+<script>
+    // Load home page sub-components
+    (async function() {
+        const components = [
+            { id: 'home-status-cards', path: 'components/home/status-cards.html' },
+            { id: 'home-config-panel', path: 'components/home/config-panel.html' },
+            { id: 'home-projects-list', path: 'components/home/projects-list.html' },
+            { id: 'home-logs-panel', path: 'components/home/logs-panel.html' },
+            { id: 'home-tool-debugger', path: 'components/home/tool-debugger.html' }
+        ];
+        
+        for (const component of components) {
+            try {
+                const response = await fetch(`/static/${component.path}`);
+                const html = await response.text();
+                const element = document.getElementById(component.id);
+                if (element) {
+                    element.innerHTML = html;
+                }
+            } catch (error) {
+                console.error(`Failed to load component ${component.path}:`, error);
+            }
+        }
+    })();
+</script>

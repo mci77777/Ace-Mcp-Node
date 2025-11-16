@@ -1,0 +1,83 @@
+name: Build Prompt Enhance
+
+on:
+  push:
+    tags:
+      - 'prompt-enhance-v*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build shared package
+        run: npm run build:shared
+      
+      - name: Build prompt-enhance package
+        run: npm run build:prompt-enhance
+      
+      - name: Package to exe
+        run: npm run package:prompt-enhance
+      
+      - name: Verify exe file
+        run: |
+          if (Test-Path "packages/prompt-enhance/build/prompt-enhance-win-x64.exe") {
+            Write-Host "✓ EXE file generated successfully"
+            $fileSize = (Get-Item "packages/prompt-enhance/build/prompt-enhance-win-x64.exe").Length / 1MB
+            Write-Host "File size: $([math]::Round($fileSize, 2)) MB"
+          } else {
+            Write-Error "✗ EXE file not found"
+            exit 1
+          }
+        shell: pwsh
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            packages/prompt-enhance/build/prompt-enhance-win-x64.exe
+          draft: false
+          prerelease: false
+          name: Prompt Enhance ${{ github.ref_name }}
+          body: |
+            ## Prompt Enhance Desktop Application
+            
+            ### 📦 Download
+            - **Windows x64**: `prompt-enhance-win-x64.exe`
+            
+            ### 🚀 Quick Start
+            1. Download the exe file
+            2. Double-click to run (no Node.js required)
+            3. Browser will open automatically to http://localhost:8090
+            4. Configure your API settings in the web UI
+            
+            ### 📝 Configuration
+            - Config file: `~/.codebase-mcp/settings.toml`
+            - Logs: `~/.codebase-mcp/log/`
+            
+            ### 🔧 Features
+            - Prompt enhancement with AI models
+            - Web-based prompt editor
+            - Real-time log viewing
+            - Model selection and configuration
+            
+            ### 📖 Documentation
+            See [README.md](https://github.com/${{ github.repository }}/blob/main/packages/prompt-enhance/README.md) for detailed usage instructions.
+            
+            ---
+            **Tag**: `${{ github.ref_name }}`  
+            **Commit**: `${{ github.sha }}`
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

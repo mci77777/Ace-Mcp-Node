@@ -1,0 +1,620 @@
+<!-- Configuration Panel Component -->
+<!-- Displays and edits server configuration with split layout -->
+
+<div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6" 
+     x-data="{
+         localEditMode: false,
+         localConfig: {},
+         availableModels: [],
+         loadingModels: false,
+         validationErrors: {},
+         showAdvanced: false,
+         
+         init() {
+             this.localConfig = JSON.parse(JSON.stringify($store.app.config));
+             // Always load models on init
+             this.loadModels();
+         },
+         
+         async loadModels() {
+             this.loadingModels = true;
+             try {
+                 const response = await API.getModels();
+                 this.availableModels = response.models || [];
+                 console.log(`Loaded ${this.availableModels.length} models from API`);
+             } catch (error) {
+                 console.error('Failed to load models:', error);
+                 this.availableModels = [];
+             } finally {
+                 this.loadingModels = false;
+             }
+         },
+         
+         enableEdit() {
+             this.localEditMode = true;
+             this.localConfig = JSON.parse(JSON.stringify($store.app.config));
+             this.checkApiType();
+             this.loadModels();
+         },
+         
+         cancelEdit() {
+             this.localEditMode = false;
+             this.localConfig = JSON.parse(JSON.stringify($store.app.config));
+             this.validationErrors = {};
+         },
+         
+         async saveConfig() {
+             if (!this.validateAll()) {
+                 $store.app.showNotification('error', 'Please fix validation errors before saving');
+                 return;
+             }
+             
+             try {
+                 await API.updateConfig(this.localConfig);
+                 $store.app.config = JSON.parse(JSON.stringify(this.localConfig));
+                 this.localEditMode = false;
+                 $store.app.showNotification('success', 'Configuration saved successfully');
+             } catch (error) {
+                 console.error('Failed to save config:', error);
+                 $store.app.showNotification('error', 'Failed to save configuration');
+             }
+         },
+         
+         validateUrl(url) {
+             try {
+                 new URL(url);
+                 return true;
+             } catch {
+                 return false;
+             }
+         },
+         
+         onEnhanceUrlChange() {
+             // Reload models when URL changes
+             this.loadModels();
+         },
+         
+         validateCustomHeaders(value) {
+             if (!value || value.trim() === '') {
+                 return true; // Empty is valid (optional field)
+             }
+             try {
+                 const parsed = JSON.parse(value);
+                 if (typeof parsed !== 'object' || Array.isArray(parsed)) {
+                     return false;
+                 }
+                 return true;
+             } catch {
+                 return false;
+             }
+         },
+         
+         validateField(field, value) {
+             switch(field) {
+                 case 'base_url':
+                 case 'enhance_base_url':
+                     if (!value || value.trim() === '') {
+                         this.validationErrors[field] = 'URL is required';
+                         return false;
+                     }
+                     if (!this.validateUrl(value)) {
+                         this.validationErrors[field] = 'Invalid URL format';
+                         return false;
+                     }
+                     delete this.validationErrors[field];
+                     return true;
+                 case 'token':
+                 case 'enhance_token':
+                     if (!value || value.trim() === '') {
+                         this.validationErrors[field] = 'Token is required';
+                         return false;
+                     }
+                     if (value.length < 10) {
+                         this.validationErrors[field] = 'Token must be at least 10 characters';
+                         return false;
+                     }
+                     delete this.validationErrors[field];
+                     return true;
+                 case 'batch_size':
+                     if (!value || value < 1 || value > 100) {
+                         this.validationErrors[field] = 'Batch size must be between 1 and 100';
+                         return false;
+                     }
+                     delete this.validationErrors[field];
+                     return true;
+                 case 'max_lines_per_blob':
+                     if (!value || value < 100 || value > 10000) {
+                         this.validationErrors[field] = 'Max lines must be between 100 and 10000';
+                         return false;
+                     }
+                     delete this.validationErrors[field];
+                     return true;
+                 case 'custom_headers':
+                     if (!this.validateCustomHeaders(value)) {
+                         this.validationErrors[field] = 'Invalid JSON format';
+                         return false;
+                     }
+                     delete this.validationErrors[field];
+                     return true;
+                 default:
+                     delete this.validationErrors[field];
+                     return true;
+             }
+         },
+         
+         validateAll() {
+             const config = this.localConfig;
+             let isValid = true;
+             isValid = this.validateField('base_url', config.base_url) && isValid;
+             isValid = this.validateField('token', config.token) && isValid;
+             isValid = this.validateField('enhance_base_url', config.enhance_base_url) && isValid;
+             isValid = this.validateField('enhance_token', config.enhance_token) && isValid;
+             isValid = this.validateField('batch_size', config.batch_size) && isValid;
+             isValid = this.validateField('max_lines_per_blob', config.max_lines_per_blob) && isValid;
+             return isValid;
+         }
+     }">
+    <!-- Header with Edit/Save Controls -->
+    <div class="flex items-center justify-between mb-6">
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+            <span>🔧</span>
+            <span x-text="$t('configuration')"></span>
+        </h2>
+        
+        <div class="flex gap-2">
+            <template x-if="!localEditMode">
+                <button 
+                    @click="enableEdit()"
+                    class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors duration-200 text-sm font-medium flex items-center gap-2"
+                >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                    </svg>
+                    <span x-text="$t('config_edit')"></span>
+                </button>
+            </template>
+            
+            <template x-if="localEditMode">
+                <div class="flex gap-2">
+                    <button 
+                        @click="cancelEdit()"
+                        class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors duration-200 text-sm font-medium flex items-center gap-2"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                        <span x-text="$t('config_cancel')"></span>
+                    </button>
+                    <button 
+                        @click="saveConfig()"
+                        class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors duration-200 text-sm font-medium flex items-center gap-2"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        <span x-text="$t('config_save')"></span>
+                    </button>
+                </div>
+            </template>
+        </div>
+    </div>
+    
+    <!-- Split Configuration Layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        
+        <!-- Left Column: Index Service (codebase-retrieval) -->
+        <div class="space-y-6 p-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg border-2 border-blue-200 dark:border-blue-800">
+            <div class="flex items-center gap-2 mb-4">
+                <span class="text-2xl">🔍</span>
+                <h3 class="text-lg font-bold text-blue-800 dark:text-blue-200">Index Service</h3>
+                <span class="text-xs text-blue-600 dark:text-blue-400">(codebase-retrieval)</span>
+            </div>
+            
+            <!-- Base URL -->
+            <div class="space-y-2">
+                <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    <span class="flex items-center gap-2">
+                        <span>🌐</span>
+                        <span x-text="$t('config_base_url')"></span>
+                        <span class="text-red-500">*</span>
+                    </span>
+                </label>
+                <template x-if="!localEditMode">
+                    <div class="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600">
+                        <code class="text-sm text-gray-800 dark:text-gray-200 font-mono break-all" x-text="$store.app.config.base_url"></code>
+                    </div>
+                </template>
+                <template x-if="localEditMode">
+                    <div>
+                        <input 
+                            type="url"
+                            x-model="localConfig.base_url"
+                            @blur="validateField('base_url', localConfig.base_url)"
+                            class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-2.5 font-mono"
+                            :class="validationErrors.base_url ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''"
+                            placeholder="https://api.example.com"
+                        />
+                        <p x-show="validationErrors.base_url" x-text="validationErrors.base_url" class="text-xs text-red-600 dark:text-red-400 mt-1"></p>
+                    </div>
+                </template>
+                <p class="text-xs text-gray-600 dark:text-gray-400">
+                    Used for codebase-retrieval tool
+                </p>
+            </div>
+            
+            <!-- Token -->
+            <div class="space-y-2">
+                <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    <span class="flex items-center gap-2">
+                        <span>🔑</span>
+                        <span x-text="$t('config_token')"></span>
+                        <span class="text-red-500">*</span>
+                    </span>
+                </label>
+                <template x-if="!localEditMode">
+                    <div class="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600">
+                        <code class="text-sm text-gray-800 dark:text-gray-200 font-mono">••••••••••••••••</code>
+                    </div>
+                </template>
+                <template x-if="localEditMode">
+                    <div>
+                        <input 
+                            type="text"
+                            x-model="localConfig.token"
+                            @blur="validateField('token', localConfig.token)"
+                            class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-2.5 font-mono"
+                            :class="validationErrors.token ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''"
+                            placeholder="Enter your index service token"
+                        />
+                        <p x-show="validationErrors.token" x-text="validationErrors.token" class="text-xs text-red-600 dark:text-red-400 mt-1"></p>
+                    </div>
+                </template>
+                <p class="text-xs text-gray-600 dark:text-gray-400">
+                    Authentication token for index service
+                </p>
+            </div>
+            
+            <!-- Batch Size -->
+            <div class="space-y-2">
+                <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    <span class="flex items-center gap-2">
+                        <span>📦</span>
+                        <span x-text="$t('config_batch_size')"></span>
+                    </span>
+                </label>
+                <template x-if="!localEditMode">
+                    <div class="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600">
+                        <code class="text-sm text-gray-800 dark:text-gray-200 font-mono" x-text="$store.app.config.batch_size"></code>
+                    </div>
+                </template>
+                <template x-if="localEditMode">
+                    <div>
+                        <input 
+                            type="number"
+                            x-model.number="localConfig.batch_size"
+                            @blur="validateField('batch_size', localConfig.batch_size)"
+                            min="1"
+                            max="100"
+                            class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-2.5"
+                            :class="validationErrors.batch_size ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''"
+                        />
+                        <p x-show="validationErrors.batch_size" x-text="validationErrors.batch_size" class="text-xs text-red-600 dark:text-red-400 mt-1"></p>
+                    </div>
+                </template>
+                <p class="text-xs text-gray-600 dark:text-gray-400">
+                    Number of files to process in each batch
+                </p>
+            </div>
+            
+            <!-- Max Lines Per Blob -->
+            <div class="space-y-2">
+                <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    <span class="flex items-center gap-2">
+                        <span>📄</span>
+                        <span x-text="$t('config_max_lines')"></span>
+                    </span>
+                </label>
+                <template x-if="!localEditMode">
+                    <div class="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600">
+                        <code class="text-sm text-gray-800 dark:text-gray-200 font-mono" x-text="$store.app.config.max_lines_per_blob"></code>
+                    </div>
+                </template>
+                <template x-if="localEditMode">
+                    <div>
+                        <input 
+                            type="number"
+                            x-model.number="localConfig.max_lines_per_blob"
+                            @blur="validateField('max_lines_per_blob', localConfig.max_lines_per_blob)"
+                            min="100"
+                            max="10000"
+                            class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-2.5"
+                            :class="validationErrors.max_lines_per_blob ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''"
+                        />
+                        <p x-show="validationErrors.max_lines_per_blob" x-text="validationErrors.max_lines_per_blob" class="text-xs text-red-600 dark:text-red-400 mt-1"></p>
+                    </div>
+                </template>
+                <p class="text-xs text-gray-600 dark:text-gray-400">
+                    Maximum number of lines per code blob
+                </p>
+            </div>
+        </div>
+        
+        <!-- Right Column: Enhance Service (enhance_prompt) -->
+        <div class="space-y-6 p-6 bg-green-50 dark:bg-green-900/20 rounded-lg border-2 border-green-200 dark:border-green-800">
+            <div class="flex items-center gap-2 mb-4">
+                <span class="text-2xl">⚡</span>
+                <h3 class="text-lg font-bold text-green-800 dark:text-green-200">Enhance Service</h3>
+                <span class="text-xs text-green-600 dark:text-green-400">(enhance_prompt)</span>
+            </div>
+            
+            <!-- Enhance Base URL -->
+            <div class="space-y-2">
+                <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    <span class="flex items-center gap-2">
+                        <span>🌐</span>
+                        <span>Enhance Base URL</span>
+                        <span class="text-red-500">*</span>
+                    </span>
+                </label>
+                <template x-if="!localEditMode">
+                    <div class="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600">
+                        <code class="text-sm text-gray-800 dark:text-gray-200 font-mono break-all" x-text="$store.app.config.enhance_base_url"></code>
+                    </div>
+                </template>
+                <template x-if="localEditMode">
+                    <div>
+                        <input 
+                            type="url"
+                            x-model="localConfig.enhance_base_url"
+                            @input="onEnhanceUrlChange()"
+                            @blur="validateField('enhance_base_url', localConfig.enhance_base_url)"
+                            class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-green-500 focus:ring-green-500 text-sm p-2.5 font-mono"
+                            :class="validationErrors.enhance_base_url ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''"
+                            placeholder="https://api.openai.com"
+                        />
+                        <p x-show="validationErrors.enhance_base_url" x-text="validationErrors.enhance_base_url" class="text-xs text-red-600 dark:text-red-400 mt-1"></p>
+                        <p x-show="isAugmentApi && !validationErrors.enhance_base_url" class="text-xs text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1">
+                            <span>ℹ️</span>
+                            <span>Augment API detected - will use anti-block payload</span>
+                        </p>
+                        <p x-show="!isAugmentApi && !validationErrors.enhance_base_url" class="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
+                            <span>💡</span>
+                            <span>Backend will auto-append /v1/chat/completions for OpenAI-compatible APIs</span>
+                        </p>
+                    </div>
+                </template>
+                <p class="text-xs text-gray-600 dark:text-gray-400">
+                    Used for enhance_prompt feature
+                </p>
+            </div>
+            
+            <!-- Enhance Token -->
+            <div class="space-y-2">
+                <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    <span class="flex items-center gap-2">
+                        <span>🔑</span>
+                        <span>Enhance Token</span>
+                        <span class="text-red-500">*</span>
+                    </span>
+                </label>
+                <template x-if="!localEditMode">
+                    <div class="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600">
+                        <code class="text-sm text-gray-800 dark:text-gray-200 font-mono">••••••••••••••••</code>
+                    </div>
+                </template>
+                <template x-if="localEditMode">
+                    <div>
+                        <input 
+                            type="text"
+                            x-model="localConfig.enhance_token"
+                            @blur="validateField('enhance_token', localConfig.enhance_token)"
+                            class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-green-500 focus:ring-green-500 text-sm p-2.5 font-mono"
+                            :class="validationErrors.enhance_token ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''"
+                            placeholder="Enter your enhance service token"
+                        />
+                        <p x-show="validationErrors.enhance_token" x-text="validationErrors.enhance_token" class="text-xs text-red-600 dark:text-red-400 mt-1"></p>
+                    </div>
+                </template>
+                <p class="text-xs text-gray-600 dark:text-gray-400">
+                    Authentication token for enhance service
+                </p>
+            </div>
+            
+            <!-- Model Selection (Always Available) -->
+            <div class="space-y-2">
+                <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    <span class="flex items-center gap-2">
+                        <span>🤖</span>
+                        <span>Model</span>
+                    </span>
+                </label>
+                
+                <!-- Model Dropdown - Always Editable -->
+                <div class="space-y-2">
+                    <div class="flex gap-2">
+                        <select 
+                            x-model="localConfig.model"
+                            @change="if (!localEditMode) { $store.app.config.model = localConfig.model; API.updateConfig($store.app.config); }"
+                            class="flex-1 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-green-500 focus:ring-green-500 text-sm p-2.5"
+                            :disabled="loadingModels"
+                        >
+                            <option value="">Default</option>
+                            <template x-for="model in availableModels" :key="model.id">
+                                <option :value="model.id" x-text="model.name"></option>
+                            </template>
+                        </select>
+                        <button 
+                            @click="loadModels()"
+                            :disabled="loadingModels"
+                            class="px-3 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm"
+                            title="Refresh models"
+                        >
+                            <svg class="w-4 h-4" :class="loadingModels ? 'animate-spin' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    <!-- Custom Model Input -->
+                    <input 
+                        type="text"
+                        x-model="localConfig.custom_model"
+                        @change="if (!localEditMode) { $store.app.config.custom_model = localConfig.custom_model; API.updateConfig($store.app.config); }"
+                        class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-green-500 focus:ring-green-500 text-sm p-2.5 font-mono"
+                        placeholder="Or enter custom model name (e.g., gpt-4-turbo, claude-3-opus)"
+                    />
+                    
+                    <p x-show="loadingModels" class="text-xs text-blue-500 dark:text-blue-400 flex items-center gap-1">
+                        <svg class="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Loading models from API...</span>
+                    </p>
+                    <p x-show="!loadingModels && availableModels.length > 0" class="text-xs text-gray-500 dark:text-gray-400">
+                        <span x-text="availableModels.length"></span> models available from API
+                    </p>
+                    <p x-show="!loadingModels && availableModels.length === 0" class="text-xs text-orange-600 dark:text-orange-400">
+                        No models from API. Enter custom model name above.
+                    </p>
+                </div>
+                
+                <p class="text-xs text-gray-600 dark:text-gray-400">
+                    Select from API or enter custom model name. Changes save automatically.
+                </p>
+            </div>
+            
+            <!-- Advanced Settings (Collapsible) -->
+            <div class="space-y-2">
+                <button 
+                    @click="showAdvanced = !showAdvanced"
+                    class="w-full flex items-center justify-between p-3 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                >
+                    <span class="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                        <span>⚙️</span>
+                        <span>Advanced Settings</span>
+                        <span class="text-gray-500 text-xs">(Custom Headers)</span>
+                    </span>
+                    <svg 
+                        class="w-5 h-5 text-gray-500 transition-transform"
+                        :class="showAdvanced ? 'rotate-180' : ''"
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                    >
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+                
+                <!-- Custom Headers (Collapsible Content) -->
+                <div 
+                    x-show="showAdvanced" 
+                    x-transition:enter="transition ease-out duration-200"
+                    x-transition:enter-start="opacity-0 -translate-y-2"
+                    x-transition:enter-end="opacity-100 translate-y-0"
+                    class="space-y-2 pl-4 border-l-2 border-gray-300 dark:border-gray-600"
+                >
+                    <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                        <span class="flex items-center gap-2">
+                            <span>🔧</span>
+                            <span>Custom Headers</span>
+                            <span class="text-gray-500 text-xs">(Optional)</span>
+                        </span>
+                    </label>
+                    <template x-if="!localEditMode">
+                        <div class="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600">
+                            <code class="text-xs text-gray-800 dark:text-gray-200 font-mono break-all" x-text="$store.app.config.custom_headers || '{}'"></code>
+                        </div>
+                    </template>
+                    <template x-if="localEditMode">
+                        <div>
+                            <textarea 
+                                x-model="localConfig.custom_headers"
+                                @blur="validateField('custom_headers', localConfig.custom_headers)"
+                                rows="4"
+                                class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-green-500 focus:ring-green-500 text-xs p-2.5 font-mono"
+                                :class="validationErrors.custom_headers ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''"
+                                placeholder='{"X-API-Key": "your-key", "X-Organization": "your-org"}'
+                            ></textarea>
+                            <p x-show="validationErrors.custom_headers" x-text="validationErrors.custom_headers" class="text-xs text-red-600 dark:text-red-400 mt-1"></p>
+                            <p x-show="!validationErrors.custom_headers" class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                JSON format. Example: {"api-key": "xxx"} for Azure OpenAI
+                            </p>
+                        </div>
+                    </template>
+                    <p class="text-xs text-gray-600 dark:text-gray-400">
+                        Custom HTTP headers for API requests. Used for Azure OpenAI, custom auth, etc.
+                    </p>
+                </div>
+            </div>
+            
+            <!-- API Format Info -->
+            <div class="p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600">
+                <h6 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                    <span>📋</span>
+                    <span>API Format</span>
+                </h6>
+                <div class="space-y-2 text-xs text-gray-600 dark:text-gray-400">
+                    <div class="flex items-start gap-2">
+                        <span class="text-blue-500">•</span>
+                        <span><strong>Augment API:</strong> Uses anti-block payload with null model</span>
+                    </div>
+                    <div class="flex items-start gap-2">
+                        <span class="text-green-500">•</span>
+                        <span><strong>OpenAI Compatible:</strong> Standard format with model selection</span>
+                    </div>
+                    <div class="flex items-start gap-2">
+                        <span class="text-purple-500">•</span>
+                        <span>Format is auto-detected based on URL</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+    
+    <!-- File Extensions and Exclude Patterns -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Text Extensions -->
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <span x-text="$t('config_text_extensions')"></span>
+            </label>
+            <template x-if="!localEditMode">
+                <div class="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-300 dark:border-gray-600">
+                    <code class="text-xs text-gray-800 dark:text-gray-200 font-mono" x-text="$store.app.config.text_extensions"></code>
+                </div>
+            </template>
+            <template x-if="localEditMode">
+                <textarea 
+                    x-model="localConfig.text_extensions"
+                    rows="3"
+                    class="w-full px-4 py-2 border rounded-md transition-colors duration-200 font-mono text-sm border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    placeholder=".js, .ts, .py, .java, ..."
+                ></textarea>
+            </template>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400" x-text="$t('config_extensions_hint')"></p>
+        </div>
+        
+        <!-- Exclude Patterns -->
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <span x-text="$t('config_exclude_patterns')"></span>
+            </label>
+            <template x-if="!localEditMode">
+                <div class="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-300 dark:border-gray-600">
+                    <code class="text-xs text-gray-800 dark:text-gray-200 font-mono" x-text="$store.app.config.exclude_patterns"></code>
+                </div>
+            </template>
+            <template x-if="localEditMode">
+                <textarea 
+                    x-model="localConfig.exclude_patterns"
+                    rows="3"
+                    class="w-full px-4 py-2 border rounded-md transition-colors duration-200 font-mono text-sm border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    placeholder="node_modules/**, dist/**, ..."
+                ></textarea>
+            </template>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400" x-text="$t('config_patterns_hint')"></p>
+        </div>
+    </div>
+</div>
