@@ -5,17 +5,17 @@
 
 // Storage keys constants
 const STORAGE_KEYS = {
-    CURRENT_PAGE: 'acemcp_currentPage',
-    THEME: 'acemcp_theme',
-    LANG: 'acemcp_lang',
-    ENHANCE_MESSAGE: 'acemcp_enhanceMessage',
-    ENHANCE_LANGUAGE: 'acemcp_enhanceLanguage',
-    ENHANCE_PROJECT_PATH: 'acemcp_enhanceProjectPath',
-    ENHANCE_SELECTED_FILES: 'acemcp_enhanceSelectedFiles',
-    ENHANCE_USER_GUIDELINES: 'acemcp_enhanceUserGuidelines',
-    ENHANCE_CUSTOM_GUIDELINE_PATH: 'acemcp_enhanceCustomGuidelinePath',
-    ENHANCE_INCLUDE_README: 'acemcp_enhanceIncludeReadme',
-    ENHANCE_TREE_DEPTH: 'acemcp_enhanceTreeDepth'
+    CURRENT_PAGE: 'codebase_mcp_currentPage',
+    THEME: 'codebase_mcp_theme',
+    LANG: 'codebase_mcp_lang',
+    ENHANCE_MESSAGE: 'codebase_mcp_enhanceMessage',
+    ENHANCE_LANGUAGE: 'codebase_mcp_enhanceLanguage',
+    ENHANCE_PROJECT_PATH: 'codebase_mcp_enhanceProjectPath',
+    ENHANCE_SELECTED_FILES: 'codebase_mcp_enhanceSelectedFiles',
+    ENHANCE_USER_GUIDELINES: 'codebase_mcp_enhanceUserGuidelines',
+    ENHANCE_CUSTOM_GUIDELINE_PATH: 'codebase_mcp_enhanceCustomGuidelinePath',
+    ENHANCE_INCLUDE_README: 'codebase_mcp_enhanceReadme',
+    ENHANCE_TREE_DEPTH: 'codebase_mcp_enhanceTreeDepth'
 };
 
 // Helper functions for localStorage operations
@@ -90,7 +90,7 @@ const Storage = {
     
     clear() {
         try {
-            // Only clear acemcp-related keys
+            // Only clear codebase-mcp-related keys
             Object.values(STORAGE_KEYS).forEach(key => {
                 localStorage.removeItem(key);
             });

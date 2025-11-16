@@ -1,6 +1,6 @@
 /**
- * acemcp MCP 服务器的配置管理
- * 从 ~/.acemcp/settings.toml 读取配置
+ * Codebase MCP 服务器的配置管理
+ * 从 ~/.codebase-mcp/settings.toml 读取配置
  */
 
 import fs from 'fs';
@@ -90,7 +90,7 @@ const DEFAULT_CONFIG = {
 /**
  * 用户配置和数据路径
  */
-export const USER_CONFIG_DIR = path.join(os.homedir(), '.acemcp');
+export const USER_CONFIG_DIR = path.join(os.homedir(), '.codebase-mcp');
 export const USER_CONFIG_FILE = path.join(USER_CONFIG_DIR, 'settings.toml');
 export const USER_DATA_DIR = path.join(USER_CONFIG_DIR, 'data');
 

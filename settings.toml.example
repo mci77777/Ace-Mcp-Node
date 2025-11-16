@@ -1,4 +1,4 @@
-# ~/.acemcp/settings.toml.example
+# ~/.codebase-mcp/settings.toml.example
 # Copy this file to settings.toml and fill in your credentials
 
 # === 索引服务 API 配置（用于 codebase-retrieval）===

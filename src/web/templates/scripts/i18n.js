@@ -6,7 +6,7 @@
 const translations = {
     en: {
         // General
-        title: 'Acemcp Management',
+        title: 'Codebase & Prompt Enhance',
         subtitle: 'MCP Server Management Interface',
         
         // Navigation
@@ -212,7 +212,7 @@ const translations = {
     
     zh: {
         // General
-        title: 'Acemcp 管理',
+        title: 'Codebase & Prompt Enhance',
         subtitle: 'MCP 服务器管理界面',
         
         // Navigation

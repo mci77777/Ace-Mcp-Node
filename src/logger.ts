@@ -65,14 +65,14 @@ class Logger {
     const defaultConfig: LoggerConfig = {
       consoleLevel: LogLevel.INFO,
       fileLevel: LogLevel.DEBUG,
-      logDir: path.join(os.homedir(), '.acemcp', 'log'),
+      logDir: path.join(os.homedir(), '.codebase-mcp', 'log'),
       maxFileSize: 5 * 1024 * 1024, // 5MB
       maxFiles: 10,
       enableConsole: false, // 默认禁用控制台输出（MCP stdio 模式）
     };
 
     this.config = { ...defaultConfig, ...config };
-    this.logFile = path.join(this.config.logDir, 'acemcp.log');
+    this.logFile = path.join(this.config.logDir, 'codebase-mcp.log');
     this.ensureLogDir();
     this.initFileStream();
   }

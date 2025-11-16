@@ -81,7 +81,7 @@ export function createApp(): express.Application {
     if (fs.existsSync(htmlFile)) {
       res.sendFile(htmlFile);
     } else {
-      res.send('<h1>Acemcp Management</h1><p>Template not found</p>');
+      res.send('<h1>Codebase & Prompt Enhance</h1><p>Template not found</p>');
     }
   });
 

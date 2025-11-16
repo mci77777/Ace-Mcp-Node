@@ -47,7 +47,7 @@ function parseArgs(): { baseUrl?: string; token?: string; webPort?: number } {
  */
 const server = new Server(
   {
-    name: 'acemcp',
+    name: 'codebase-mcp',
     version: '0.1.4',
   },
   {
@@ -228,7 +228,7 @@ async function main(): Promise<void> {
 
     config.validate();
 
-    logger.info('正在启动 acemcp MCP 服务器...');
+    logger.info('正在启动 Codebase MCP 服务器...');
     logger.info(
       `配置: index_storage_path=${config.indexStoragePath}, batch_size=${config.batchSize}`
     );
