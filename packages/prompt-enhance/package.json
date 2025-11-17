@@ -3,18 +3,27 @@
   "version": "0.1.0",
   "description": "Prompt enhancement desktop application with web UI",
   "type": "module",
-  "main": "./dist/index.js",
+  "main": "./dist/electron/main.js",
   "types": "./dist/index.d.ts",
   "bin": {
     "prompt-enhance": "./dist/index.js"
   },
   "scripts": {
-    "build": "tsc && npm run copy-templates",
-    "copy-templates": "node -e \"const fs = require('fs'); if (fs.existsSync('src/web/templates')) fs.cpSync('src/web/templates', 'dist/web/templates', {recursive: true})\"",
+    "build": "node build.mjs",
+    "build:types": "tsc",
+    "build:electron": "tsc && npm run copy-templates",
+    "copy-templates": "node -e \"const fs = require('fs'); const path = require('path'); if (fs.existsSync('src/web/templates')) { fs.cpSync('src/web/templates', 'dist/web/templates', {recursive: true}); console.log('✓ Templates copied to dist/web/templates'); const files = fs.readdirSync('dist/web/templates'); console.log('  Files:', files.join(', ')); } else { console.error('✗ src/web/templates not found'); }\"",
     "dev": "tsx watch src/index.ts",
+    "dev:electron": "npm run build:electron && electron .",
     "start": "node dist/index.js",
+    "start:electron": "electron .",
     "clean": "rimraf dist build",
-    "package": "npm run build && pkg dist/index.js --targets node18-win-x64 --output build/prompt-enhance-win-x64.exe --config pkg.config.json",
+    "package:pkg": "npm run build && pkg dist/bundle.cjs --config pkg.config.json --output build/pkg/prompt-enhance-win-x64.exe && npm run copy-prompt-to-build",
+    "package:electron": "npm run build:electron && electron-builder --config electron-builder.json",
+    "package:electron:win": "npm run build:electron && electron-builder --win --config electron-builder.json",
+    "package:electron:mac": "npm run build:electron && electron-builder --mac --config electron-builder.json",
+    "package:electron:linux": "npm run build:electron && electron-builder --linux --config electron-builder.json",
+    "copy-prompt-to-build": "node -e \"const fs = require('fs'); const path = require('path'); const src = 'prompt'; const dest = 'build/pkg/prompt'; if (!fs.existsSync(dest)) fs.mkdirSync(dest, {recursive: true}); fs.readdirSync(src).forEach(file => fs.copyFileSync(path.join(src, file), path.join(dest, file))); console.log('Prompt files copied to build directory')\"",
     "test": "echo \"No tests yet\" && exit 0"
   },
   "keywords": [
@@ -28,14 +37,17 @@
   "license": "ISC",
   "dependencies": {
     "@codebase-mcp/shared": "*",
-    "express": "^4.18.0",
     "axios": "^1.7.0",
+    "express": "^4.18.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/node": "^24.10.0",
     "@types/ws": "^8.5.12",
+    "electron": "^39.2.1",
+    "electron-builder": "^26.0.12",
+    "esbuild": "^0.25.12",
     "pkg": "^5.8.1",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3"

@@ -1,70 +1,257 @@
-# ~/.codebase-mcp/settings.toml.example
-# Copy this file to settings.toml and fill in your credentials
+# ============================================================================
+# Codebase MCP - Configuration Example
+# ============================================================================
+# 
+# 配置文件位置：~/.codebase-mcp/settings.toml
+# 
+# 使用说明：
+# 1. 复制此文件到 ~/.codebase-mcp/settings.toml
+# 2. 根据你的需求填写配置项
+# 3. 必填项：BASE_URL, TOKEN（用于 Retrieval）
+#           ENHANCE_BASE_URL, ENHANCE_TOKEN（用于 Prompt Enhance）
+# 4. 其他配置项都有合理的默认值，可按需修改
+#
+# ============================================================================
 
-# === 索引服务 API 配置（用于 codebase-retrieval）===
-BASE_URL = "https://d6.api.augmentcode.com/"  # 索引服务器地址
-TOKEN = "your-token-here"                      # 访问令牌（必填）
+# ============================================================================
+# 索引服务 API 配置（Codebase Retrieval 模块）
+# ============================================================================
+# 
+# 用途：为代码库建立语义索引，支持自然语言搜索
+# 使用场景：MCP 客户端（Claude Desktop、Cline 等）调用 codebase-retrieval 工具
+#
 
-# === 提示词增强服务 API 配置（用于 enhance_prompt）===
-ENHANCE_BASE_URL = "https://api.x.ai"          # X.AI API 地址
-ENHANCE_TOKEN = "your-xai-token-here"          # X.AI API Key（必填）
-MODEL = "grok-2-1212"                          # 默认模型
-CUSTOM_MODEL = ""                              # 自定义模型名
-API_TIMEOUT = 120000                           # API 请求超时时间（毫秒），默认 120 秒
+# 索引服务器地址（必填）
+# 默认使用 AugmentCode 官方服务
+BASE_URL = "https://d6.api.augmentcode.com/"
 
-# === 自定义请求头（可选）===
-# 用于 OpenAI 兼容 API 的自定义 HTTP 请求头
+# 访问令牌（必填）
+# 获取方式：访问 https://augmentcode.com 注册并获取 API Token
+TOKEN = "your-token-here"
+
+# ============================================================================
+# 提示词增强服务 API 配置（Prompt Enhance 模块）
+# ============================================================================
+#
+# 用途：使用 AI 模型增强和优化用户输入的提示词
+# 使用场景：运行 Prompt Enhance 桌面应用时使用
+#
+
+# AI 服务 API 地址（必填）
+# 支持的服务：
+# - X.AI (Grok): https://api.x.ai
+# - OpenAI: https://api.openai.com
+# - Azure OpenAI: https://your-resource.openai.azure.com
+# - 其他 OpenAI 兼容服务
+ENHANCE_BASE_URL = "https://api.x.ai"
+
+# API 访问令牌（必填）
+# 获取方式：
+# - X.AI: https://console.x.ai
+# - OpenAI: https://platform.openai.com/api-keys
+ENHANCE_TOKEN = "your-xai-token-here"
+
+# 默认使用的模型
+# X.AI 模型：grok-2-1212, grok-beta
+# OpenAI 模型：gpt-4, gpt-4-turbo, gpt-3.5-turbo
+MODEL = "grok-2-1212"
+
+# 自定义模型名（可选）
+# 如果你的 API 提供商使用自定义模型名，在此指定
+# 留空则使用 MODEL 字段的值
+CUSTOM_MODEL = ""
+
+# API 请求超时时间（毫秒）
+# 默认：120000（120 秒）
+# 建议范围：60000-300000
+API_TIMEOUT = 120000
+
+# ============================================================================
+# 自定义请求头（可选）
+# ============================================================================
+#
+# 用于需要额外 HTTP 请求头的 API 服务
+# 常见用途：
+# - 自定义认证方式
+# - API 版本控制
+# - 组织/项目标识
+#
+# 示例：
 # [CUSTOM_HEADERS]
-# Authorization = "Bearer your-token"
-# X-Custom-Header = "value"
+# "X-API-Version" = "2024-01"
+# "X-Organization-ID" = "org-123456"
+#
+# 注意：如果使用 Authorization 头，它会覆盖 ENHANCE_TOKEN
+# [CUSTOM_HEADERS]
+# Authorization = "Bearer your-custom-token"
 
-# === 索引配置 ===
-BATCH_SIZE = 10                        # 批量上传数量（1-50）
-MAX_LINES_PER_BLOB = 800               # 单个代码块最大行数
+# ============================================================================
+# 索引性能配置
+# ============================================================================
+#
+# 这些配置影响索引速度和 API 调用频率
+#
 
-# === 文件类型配置 ===
+# 批量上传数量
+# 范围：1-50
+# 默认：10
+# 说明：每次向索引服务器上传的文件数量
+#      - 较大值：索引速度快，但单次请求时间长
+#      - 较小值：索引速度慢，但更稳定
+# 建议：
+#      - 网络稳定：20-30
+#      - 网络不稳定：5-10
+BATCH_SIZE = 10
+
+# 单个代码块最大行数
+# 默认：800
+# 说明：超过此行数的文件会被分割成多个代码块
+#      - 较大值：保持文件完整性，但可能影响搜索精度
+#      - 较小值：搜索更精准，但文件会被分割
+# 建议：保持默认值 800
+MAX_LINES_PER_BLOB = 800
+
+# ============================================================================
+# 文件类型配置
+# ============================================================================
+#
+# 定义哪些文件类型会被索引
+# 只有在此列表中的扩展名才会被处理
+#
+
 # 支持索引的文本文件扩展名
+# 说明：
+# - 添加你项目中使用的文件类型
+# - 移除不需要索引的类型以提高性能
+# - 二进制文件会被自动跳过
 TEXT_EXTENSIONS = [
   # 编程语言
   ".py", ".js", ".ts", ".jsx", ".tsx",
   ".java", ".go", ".rs", ".cpp", ".c",
   ".h", ".hpp", ".cs", ".rb", ".php",
   ".swift", ".kt", ".scala", ".clj",
+  ".dart", ".lua", ".r", ".m", ".mm",
   
   # 配置和数据
   ".md", ".txt", ".json", ".yaml", ".yml",
-  ".toml", ".xml", ".ini", ".conf",
+  ".toml", ".xml", ".ini", ".conf", ".cfg",
+  ".properties", ".env.example",
   
   # Web 相关
   ".html", ".css", ".scss", ".sass", ".less",
+  ".vue", ".svelte", ".astro",
   
   # 脚本
-  ".sql", ".sh", ".bash", ".ps1", ".bat"
+  ".sql", ".sh", ".bash", ".ps1", ".bat",
+  ".zsh", ".fish",
+  
+  # 文档
+  ".rst", ".adoc", ".tex"
 ]
 
-# === 排除模式 ===
-# 不会被索引的目录和文件模式
+# ============================================================================
+# 排除模式配置
+# ============================================================================
+#
+# 定义哪些目录和文件不会被索引
+# 支持 glob 模式匹配
+#
+# 说明：
+# - 这些模式会叠加到 .gitignore 规则之上
+# - 即使文件在 git 中，如果匹配排除模式也会被跳过
+# - 使用 glob 语法：* 匹配任意字符，** 匹配任意层级目录
+#
+
 EXCLUDE_PATTERNS = [
-  # 虚拟环境
+  # 依赖和虚拟环境
   ".venv", "venv", ".env", "env",
-  "node_modules",
+  "node_modules", "bower_components",
+  "vendor", "packages",
   
   # 版本控制
-  ".git", ".svn", ".hg",
+  ".git", ".svn", ".hg", ".bzr",
   
-  # Python 缓存
+  # Python 相关
   "__pycache__", ".pytest_cache", ".mypy_cache",
-  ".tox", ".eggs", "*.egg-info",
+  ".tox", ".eggs", "*.egg-info", ".coverage",
+  "htmlcov", ".hypothesis",
+  
+  # JavaScript/Node.js
+  ".npm", ".yarn", ".pnp", ".pnp.js",
+  "coverage", ".nyc_output",
   
   # 构建产物
   "dist", "build", "target", "out",
+  ".next", ".nuxt", ".output",
+  "*.min.js", "*.min.css",
   
-  # IDE 配置
-  ".idea", ".vscode", ".vs",
+  # IDE 和编辑器
+  ".idea", ".vscode", ".vs", ".fleet",
+  "*.swp", "*.swo", "*~",
   
   # 系统文件
-  ".DS_Store", "Thumbs.db",
+  ".DS_Store", "Thumbs.db", "desktop.ini",
   
-  # 编译文件
-  "*.pyc", "*.pyo", "*.pyd", "*.so", "*.dll"
+  # 编译和二进制文件
+  "*.pyc", "*.pyo", "*.pyd",
+  "*.so", "*.dll", "*.dylib",
+  "*.class", "*.o", "*.obj",
+  
+  # 日志和临时文件
+  "*.log", "logs", "*.tmp", "*.temp",
+  
+  # 测试覆盖率
+  ".coverage", "coverage", "*.lcov"
 ]
+
+# ============================================================================
+# 常见配置场景示例
+# ============================================================================
+#
+# 场景 1：仅使用 Codebase Retrieval（MCP 工具）
+# -----------------------------------------------
+# 只需配置：
+# - BASE_URL
+# - TOKEN
+# 其他字段可以保持默认或留空
+#
+# 场景 2：仅使用 Prompt Enhance（桌面应用）
+# -----------------------------------------------
+# 只需配置：
+# - ENHANCE_BASE_URL
+# - ENHANCE_TOKEN
+# - MODEL
+# 其他字段可以保持默认或留空
+#
+# 场景 3：同时使用两个模块
+# -----------------------------------------------
+# 需要配置所有必填字段：
+# - BASE_URL + TOKEN（用于 Retrieval）
+# - ENHANCE_BASE_URL + ENHANCE_TOKEN（用于 Prompt Enhance）
+#
+# 场景 4：使用 OpenAI API
+# -----------------------------------------------
+# ENHANCE_BASE_URL = "https://api.openai.com"
+# ENHANCE_TOKEN = "sk-..."
+# MODEL = "gpt-4"
+#
+# 场景 5：使用 Azure OpenAI
+# -----------------------------------------------
+# ENHANCE_BASE_URL = "https://your-resource.openai.azure.com"
+# ENHANCE_TOKEN = "your-azure-key"
+# MODEL = "gpt-4"
+# [CUSTOM_HEADERS]
+# "api-key" = "your-azure-key"
+#
+# 场景 6：大型项目优化
+# -----------------------------------------------
+# BATCH_SIZE = 20              # 提高批量上传数量
+# MAX_LINES_PER_BLOB = 1000    # 增加代码块大小
+# 添加更多 EXCLUDE_PATTERNS 以跳过不需要的文件
+#
+# 场景 7：网络不稳定环境
+# -----------------------------------------------
+# BATCH_SIZE = 5               # 减少批量大小
+# API_TIMEOUT = 180000         # 增加超时时间到 3 分钟
+#
+# ============================================================================

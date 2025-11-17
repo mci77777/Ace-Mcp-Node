@@ -1,0 +1,3 @@
+This file contains additional context that will be injected into the enhanced prompt.
+
+You can add project-specific guidelines, coding standards, or other relevant information here.

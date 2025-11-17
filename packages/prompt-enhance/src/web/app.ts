@@ -13,8 +13,26 @@ import { logger, getLogBroadcaster } from '@codebase-mcp/shared';
 import { EnhancePromptService } from '../services/enhancePrompt.js';
 import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// 处理打包后的路径
+// 在不同环境下正确解析 __dirname
+let __dirname: string;
+
+if (typeof __filename !== 'undefined') {
+  // CommonJS 环境（esbuild/pkg 打包后，或 Electron）
+  __dirname = path.dirname(__filename);
+} else {
+  // ESM 环境（开发时）
+  const __filename = fileURLToPath(import.meta.url);
+  __dirname = path.dirname(__filename);
+}
+
+// 检测是否在 Electron 环境中
+const isElectron = process.versions && process.versions.electron;
+
+// 在 Electron 打包后，__dirname 会正确指向 app.asar/dist/web
+// 所以模板路径应该是 __dirname/templates
+logger.info(`Running in ${isElectron ? 'Electron' : 'Node.js'} environment`);
+logger.info(`Current __dirname: ${__dirname}`);
 
 /**
  * 配置更新接口
@@ -45,13 +63,40 @@ export function createApp(): express.Application {
   app.use(express.urlencoded({ extended: true }));
 
   // 提供模板目录作为静态文件
-  const templatesDir = path.join(__dirname, 'templates');
-  if (fs.existsSync(templatesDir)) {
-    app.use('/static', express.static(templatesDir));
-    logger.info(`Static files served from: ${templatesDir}`);
-  } else {
-    logger.warning(`Templates directory not found: ${templatesDir}`);
-  }
+  // 尝试多个可能的模板路径
+  let templatesDir: string;
+  const possiblePaths = [
+    path.join(__dirname, 'templates'),           // Electron asar: dist/web/templates
+    path.join(__dirname, 'web', 'templates'),    // pkg 打包后: C:\snapshot\dist\web\templates
+    path.join(__dirname, '..', 'web', 'templates'), // 从 dist/ 向上查找
+    path.join(__dirname, '../..', 'web', 'templates'), // 开发环境
+  ];
+  
+  // 记录所有尝试的路径
+  logger.info('Searching for templates directory...');
+  possiblePaths.forEach((p, index) => {
+    const exists = fs.existsSync(p);
+    logger.info(`  [${index}] ${p} - ${exists ? '✓ EXISTS' : '✗ NOT FOUND'}`);
+  });
+  
+  templatesDir = possiblePaths.find(p => {
+    try {
+      return fs.existsSync(p);
+    } catch {
+      return false;
+    }
+  }) || possiblePaths[0];
+  
+  logger.info(`Selected templates directory: ${templatesDir}`);
+  
+  // 验证关键文件是否存在
+  const indexHtml = path.join(templatesDir, 'index.html');
+  const appJs = path.join(templatesDir, 'scripts', 'app.js');
+  logger.info(`  index.html exists: ${fs.existsSync(indexHtml)}`);
+  logger.info(`  scripts/app.js exists: ${fs.existsSync(appJs)}`);
+  
+  app.use('/static', express.static(templatesDir));
+  logger.info(`Static files middleware configured for /static -> ${templatesDir}`);
 
   // ============ 路由注册 ============
 
@@ -59,11 +104,137 @@ export function createApp(): express.Application {
    * GET / - 提供主管理页面
    */
   app.get('/', (req: Request, res: Response) => {
-    const htmlFile = path.join(__dirname, 'templates', 'index.html');
-    if (fs.existsSync(htmlFile)) {
-      res.sendFile(htmlFile);
-    } else {
-      res.send('<h1>Prompt Enhance</h1><p>Template not found</p>');
+    try {
+      const htmlFile = path.join(templatesDir, 'index.html');
+      
+      logger.info(`Serving index.html from: ${htmlFile}`);
+      
+      if (fs.existsSync(htmlFile)) {
+        res.sendFile(htmlFile);
+      } else {
+        logger.error(`index.html not found at: ${htmlFile}`);
+        
+        // 列出 templatesDir 的内容以便调试
+        let dirContents = 'Directory not accessible';
+        try {
+          if (fs.existsSync(templatesDir)) {
+            dirContents = fs.readdirSync(templatesDir).join(', ');
+          }
+        } catch (e: any) {
+          dirContents = `Error reading directory: ${e.message}`;
+        }
+        
+        res.status(404).send(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Prompt Enhance - Template Not Found</title>
+            <style>
+              body { font-family: monospace; padding: 20px; background: #f5f5f5; }
+              .error { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+              h1 { color: #e53e3e; }
+              .info { margin: 10px 0; padding: 10px; background: #f7fafc; border-left: 4px solid #4299e1; }
+              .label { font-weight: bold; color: #2d3748; }
+            </style>
+          </head>
+          <body>
+            <div class="error">
+              <h1>⚠️ Prompt Enhance - Template Not Found</h1>
+              <div class="info">
+                <div class="label">Looking for:</div>
+                <div>${htmlFile}</div>
+              </div>
+              <div class="info">
+                <div class="label">Current __dirname:</div>
+                <div>${__dirname}</div>
+              </div>
+              <div class="info">
+                <div class="label">Templates directory:</div>
+                <div>${templatesDir}</div>
+              </div>
+              <div class="info">
+                <div class="label">Directory exists:</div>
+                <div>${fs.existsSync(templatesDir) ? 'Yes' : 'No'}</div>
+              </div>
+              <div class="info">
+                <div class="label">Directory contents:</div>
+                <div>${dirContents}</div>
+              </div>
+              <div class="info">
+                <div class="label">Environment:</div>
+                <div>${isElectron ? 'Electron' : 'Node.js'}</div>
+              </div>
+              <div class="info">
+                <div class="label">Process versions:</div>
+                <div>${JSON.stringify(process.versions, null, 2)}</div>
+              </div>
+            </div>
+          </body>
+          </html>
+        `);
+      }
+    } catch (error: any) {
+      logger.exception('Error serving index.html', error);
+      res.status(500).send(`
+        <!DOCTYPE html>
+        <html>
+        <head><title>Error</title></head>
+        <body>
+          <h1>Error</h1>
+          <p>${error.message}</p>
+          <pre>${error.stack}</pre>
+        </body>
+        </html>
+      `);
+    }
+  });
+
+  /**
+   * GET /debug - 调试页面
+   */
+  app.get('/debug', (req: Request, res: Response) => {
+    try {
+      const debugHtmlFile = path.join(templatesDir, 'debug.html');
+      
+      if (fs.existsSync(debugHtmlFile)) {
+        res.sendFile(debugHtmlFile);
+      } else {
+        res.status(404).send('<h1>Debug page not found</h1><p>debug.html is missing from templates directory</p>');
+      }
+    } catch (error: any) {
+      logger.exception('Error serving debug.html', error);
+      res.status(500).send(`<h1>Error</h1><p>${error.message}</p>`);
+    }
+  });
+
+  /**
+   * GET /api/debug - 诊断信息（用于调试路径问题）
+   */
+  app.get('/api/debug', (req: Request, res: Response) => {
+    try {
+      const debugInfo = {
+        environment: isElectron ? 'Electron' : 'Node.js',
+        __dirname: __dirname,
+        templatesDir: templatesDir,
+        templatesDirExists: fs.existsSync(templatesDir),
+        indexHtmlExists: fs.existsSync(path.join(templatesDir, 'index.html')),
+        processVersions: process.versions,
+        cwd: process.cwd(),
+        execPath: process.execPath,
+        argv: process.argv,
+        templatesDirContents: fs.existsSync(templatesDir) 
+          ? fs.readdirSync(templatesDir) 
+          : 'Directory not found',
+        possiblePaths: possiblePaths.map(p => ({
+          path: p,
+          exists: fs.existsSync(p)
+        }))
+      };
+      
+      res.json(debugInfo);
+    } catch (error: any) {
+      logger.exception('Error getting debug info', error);
+      res.status(500).json({ error: error.message });
     }
   });
 
@@ -425,9 +596,15 @@ export function createApp(): express.Application {
         return res.status(400).json({ error: 'Invalid filename. Only prompt.txt and inject-code.txt are allowed.' });
       }
       
-      // 定位项目根目录 (packages/prompt-enhance/)
-      const projectRoot = path.join(__dirname, '../..');
-      const filePath = path.join(projectRoot, 'prompt', filename);
+      // 定位 prompt 文件
+      // 在打包后，prompt 文件应该在 exe 所在目录或其子目录
+      const possiblePaths = [
+        path.join(__dirname, '../..', 'prompt', filename),  // 开发环境
+        path.join(__dirname, 'prompt', filename),            // pkg 打包后
+        path.join(process.cwd(), 'prompt', filename),        // 当前工作目录
+      ];
+      
+      const filePath = possiblePaths.find(p => fs.existsSync(p)) || possiblePaths[0];
       
       logger.info(`Reading prompt file: ${filePath}`);
       
@@ -474,14 +651,20 @@ export function createApp(): express.Application {
         return res.status(400).json({ error: 'Content must be a string' });
       }
       
-      // 定位项目根目录 (packages/prompt-enhance/)
-      const projectRoot = path.join(__dirname, '../..');
-      const filePath = path.join(projectRoot, 'prompt', filename);
+      // 定位 prompt 文件
+      // 在打包后，prompt 文件应该在 exe 所在目录或其子目录
+      const possiblePaths = [
+        path.join(__dirname, '../..', 'prompt', filename),  // 开发环境
+        path.join(__dirname, 'prompt', filename),            // pkg 打包后
+        path.join(process.cwd(), 'prompt', filename),        // 当前工作目录
+      ];
+      
+      const filePath = possiblePaths.find(p => fs.existsSync(p)) || possiblePaths[0];
       
       logger.info(`Updating prompt file: ${filePath} (${content.length} chars)`);
       
       // 确保 prompt 目录存在
-      const promptDir = path.join(projectRoot, 'prompt');
+      const promptDir = path.dirname(filePath);
       if (!fs.existsSync(promptDir)) {
         logger.info(`Creating prompt directory: ${promptDir}`);
         fs.mkdirSync(promptDir, { recursive: true });

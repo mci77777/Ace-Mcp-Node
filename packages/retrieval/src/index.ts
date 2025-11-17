@@ -18,8 +18,11 @@ import {
   logger,
   isFirstRun,
   markFirstRunCompleted,
+  getLogBroadcaster,
 } from '@codebase-mcp/shared';
-import { codebaseRetrievalTool } from './tools/searchContext.js';
+import { codebaseRetrievalTool } from './tools/codebaseRetrieval.js';
+import { createApp, setupWebSocket } from './web/app.js';
+import { createServer } from 'http';
 
 /**
  * 解析命令行参数
@@ -65,6 +68,63 @@ function createMCPServer(): Server {
       },
     }
   );
+}
+
+/**
+ * 启动 Web 服务器
+ * 
+ * @param port - Web 服务器端口
+ * @throws 如果端口被占用或启动失败
+ */
+async function startWebServer(port: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    try {
+      // 创建 Express 应用
+      const app = createApp();
+      
+      // 创建 HTTP 服务器
+      const httpServer = createServer(app);
+      
+      // 设置 WebSocket 支持（使用 shared 的 LogBroadcaster）
+      setupWebSocket(httpServer);
+      
+      // 初始化 LogBroadcaster（确保日志广播功能启用）
+      const logBroadcaster = getLogBroadcaster();
+      logger.info(`日志广播器已初始化，当前连接数: ${logBroadcaster.getClientCount()}`);
+      
+      // 启动服务器
+      httpServer.listen(port, () => {
+        logger.info(`Web 管理界面已启动: http://localhost:${port}`);
+        logger.info('可通过 Web 界面管理项目、查看日志和调试工具');
+        resolve();
+      });
+      
+      // 处理端口冲突和其他错误
+      httpServer.on('error', (error: any) => {
+        if (error.code === 'EADDRINUSE') {
+          const errorMsg = `端口 ${port} 已被占用。请尝试以下解决方案：\n` +
+            `  1. 使用其他端口: --web-port <其他端口号>\n` +
+            `  2. 关闭占用该端口的程序\n` +
+            `  3. 不启动 Web 界面（移除 --web-port 参数）`;
+          logger.error(errorMsg);
+          reject(new Error(`端口 ${port} 已被占用`));
+        } else if (error.code === 'EACCES') {
+          const errorMsg = `没有权限绑定端口 ${port}。请尝试：\n` +
+            `  1. 使用大于 1024 的端口号\n` +
+            `  2. 以管理员权限运行`;
+          logger.error(errorMsg);
+          reject(new Error(`没有权限绑定端口 ${port}`));
+        } else {
+          logger.error(`Web 服务器启动失败: ${error.message}`);
+          reject(error);
+        }
+      });
+      
+    } catch (error: any) {
+      logger.exception('创建 Web 服务器时发生错误', error);
+      reject(error);
+    }
+  });
 }
 
 /**
@@ -144,16 +204,21 @@ async function main(): Promise<void> {
 
     logger.info('MCP 服务器已通过 stdio 连接');
 
-    // 8. 检查是否为首次运行
+    // 8. 启动 Web 管理界面（仅在指定 --web-port 时）
+    if (webPort) {
+      try {
+        await startWebServer(webPort);
+      } catch (error: any) {
+        // 优雅降级：Web 服务器失败不应阻止 MCP 服务器启动
+        logger.warning(`Web 服务器启动失败，但 MCP 服务器将继续运行: ${error.message}`);
+      }
+    }
+
+    // 9. 检查是否为首次运行
     const firstRun = isFirstRun();
     if (firstRun) {
       logger.info('检测到首次运行，配置文件已生成');
       markFirstRunCompleted();
-    }
-
-    // TODO: 启动 Web 管理界面（任务 22.1，仅在指定 --web-port 时）
-    if (webPort) {
-      logger.info(`Web 管理界面将在端口 ${webPort} 启动（待实现）`);
     }
 
   } catch (error: any) {

@@ -6,8 +6,12 @@ on:
       - 'prompt-enhance-v*'
 
 jobs:
-  build:
-    runs-on: windows-latest
+  build-electron:
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    
+    runs-on: ${{ matrix.os }}
     
     steps:
       - name: Checkout code
@@ -25,59 +29,143 @@ jobs:
       - name: Build shared package
         run: npm run build:shared
       
-      - name: Build prompt-enhance package
-        run: npm run build:prompt-enhance
+      - name: Build Electron app
+        run: npm run build:electron -w @codebase-mcp/prompt-enhance
       
-      - name: Package to exe
-        run: npm run package:prompt-enhance
+      - name: Package Electron app (Windows)
+        if: matrix.os == 'windows-latest'
+        run: npm run package:electron:win -w @codebase-mcp/prompt-enhance
       
-      - name: Verify exe file
+      - name: Package Electron app (macOS)
+        if: matrix.os == 'macos-latest'
+        run: npm run package:electron:mac -w @codebase-mcp/prompt-enhance
+      
+      - name: Package Electron app (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: npm run package:electron:linux -w @codebase-mcp/prompt-enhance
+      
+      - name: Verify build output (Windows)
+        if: matrix.os == 'windows-latest'
         run: |
-          if (Test-Path "packages/prompt-enhance/build/prompt-enhance-win-x64.exe") {
-            Write-Host "✓ EXE file generated successfully"
-            $fileSize = (Get-Item "packages/prompt-enhance/build/prompt-enhance-win-x64.exe").Length / 1MB
-            Write-Host "File size: $([math]::Round($fileSize, 2)) MB"
-          } else {
-            Write-Error "✗ EXE file not found"
-            exit 1
+          if (Test-Path "packages/prompt-enhance/build/electron/Prompt Enhance-*-win-x64.exe") {
+            Write-Host "✓ Windows installer generated successfully"
+            $installer = Get-Item "packages/prompt-enhance/build/electron/Prompt Enhance-*-win-x64.exe"
+            Write-Host "Installer size: $([math]::Round($installer.Length / 1MB, 2)) MB"
+          }
+          if (Test-Path "packages/prompt-enhance/build/electron/Prompt Enhance-*-portable.exe") {
+            Write-Host "✓ Portable exe generated successfully"
+            $portable = Get-Item "packages/prompt-enhance/build/electron/Prompt Enhance-*-portable.exe"
+            Write-Host "Portable size: $([math]::Round($portable.Length / 1MB, 2)) MB"
           }
         shell: pwsh
+      
+      - name: Verify build output (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          if [ -f packages/prompt-enhance/build/electron/*.dmg ]; then
+            echo "✓ macOS DMG generated successfully"
+            ls -lh packages/prompt-enhance/build/electron/*.dmg
+          fi
+      
+      - name: Verify build output (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          if [ -f packages/prompt-enhance/build/electron/*.AppImage ]; then
+            echo "✓ Linux AppImage generated successfully"
+            ls -lh packages/prompt-enhance/build/electron/*.AppImage
+          fi
+      
+      - name: Upload artifacts (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v3
+        with:
+          name: windows-builds
+          path: |
+            packages/prompt-enhance/build/electron/*.exe
+            packages/prompt-enhance/build/electron/*.blockmap
+      
+      - name: Upload artifacts (macOS)
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v3
+        with:
+          name: macos-builds
+          path: |
+            packages/prompt-enhance/build/electron/*.dmg
+            packages/prompt-enhance/build/electron/*.zip
+      
+      - name: Upload artifacts (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v3
+        with:
+          name: linux-builds
+          path: |
+            packages/prompt-enhance/build/electron/*.AppImage
+            packages/prompt-enhance/build/electron/*.deb
+  
+  release:
+    needs: build-electron
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
       
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            packages/prompt-enhance/build/prompt-enhance-win-x64.exe
+            windows-builds/*
+            macos-builds/*
+            linux-builds/*
           draft: false
           prerelease: false
           name: Prompt Enhance ${{ github.ref_name }}
           body: |
-            ## Prompt Enhance Desktop Application
+            ## Prompt Enhance - 真正的桌面应用
             
-            ### 📦 Download
-            - **Windows x64**: `prompt-enhance-win-x64.exe`
+            基于 Electron 构建的原生桌面应用，内嵌 Web UI，无需浏览器。
             
-            ### 🚀 Quick Start
-            1. Download the exe file
-            2. Double-click to run (no Node.js required)
-            3. Browser will open automatically to http://localhost:8090
-            4. Configure your API settings in the web UI
+            ### 📦 下载
             
-            ### 📝 Configuration
-            - Config file: `~/.codebase-mcp/settings.toml`
-            - Logs: `~/.codebase-mcp/log/`
+            **Windows**:
+            - `Prompt Enhance-x.x.x-win-x64.exe` - 安装程序（推荐）
+            - `Prompt Enhance-x.x.x-portable.exe` - 便携版（免安装）
             
-            ### 🔧 Features
-            - Prompt enhancement with AI models
-            - Web-based prompt editor
-            - Real-time log viewing
-            - Model selection and configuration
+            **macOS**:
+            - `Prompt Enhance-x.x.x.dmg` - macOS 安装包
             
-            ### 📖 Documentation
-            See [README.md](https://github.com/${{ github.repository }}/blob/main/packages/prompt-enhance/README.md) for detailed usage instructions.
+            **Linux**:
+            - `Prompt Enhance-x.x.x.AppImage` - Linux 应用镜像
+            - `Prompt Enhance-x.x.x.deb` - Debian/Ubuntu 包
+            
+            ### 🚀 快速开始
+            
+            1. 下载对应平台的安装包
+            2. 双击运行（Windows/macOS）或 `chmod +x` 后运行（Linux）
+            3. 应用会自动打开窗口，无需浏览器
+            4. 在 UI 中配置 API 设置
+            
+            ### 📝 配置
+            
+            - 配置文件: `~/.codebase-mcp/settings.toml`
+            - 日志目录: `~/.codebase-mcp/log/`
+            
+            ### ✨ 特性
+            
+            - 🖥️ 原生桌面应用（Electron）
+            - 🎨 内嵌 Web UI（无需浏览器）
+            - 🤖 AI 提示词增强
+            - 📁 项目上下文集成
+            - 🔄 实时预览
+            - 🌐 多语言支持
+            
+            ### 📖 文档
+            
+            详细使用说明请查看 [README.md](https://github.com/${{ github.repository }}/blob/main/packages/prompt-enhance/README.md)
             
             ---
             **Tag**: `${{ github.ref_name }}`  
-            **Commit**: `${{ github.sha }}`
+            **Commit**: `${{ github.sha }}`  
+            **Electron**: v39.2.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

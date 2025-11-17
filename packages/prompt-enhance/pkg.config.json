@@ -1,13 +1,11 @@
 {
-  "name": "prompt-enhance",
-  "version": "0.1.0",
-  "targets": [
-    "node18-win-x64"
-  ],
-  "assets": [
-    "dist/**/*",
-    "prompt/**/*",
-    "node_modules/@codebase-mcp/shared/dist/**/*"
-  ],
-  "outputPath": "build"
+  "pkg": {
+    "targets": [
+      "node18-win-x64"
+    ],
+    "assets": [
+      "dist/web/**/*"
+    ],
+    "outputPath": "build"
+  }
 }

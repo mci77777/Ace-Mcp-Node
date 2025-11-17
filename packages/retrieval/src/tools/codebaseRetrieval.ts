@@ -1,5 +1,5 @@
 /**
- * MCP 服务器的搜索上下文工具
+ * MCP 服务器的代码库检索工具
  */
 
 import { getConfig, logger, normalizeProjectPath } from '@codebase-mcp/shared';
@@ -8,7 +8,7 @@ import { IndexManager } from '../index/manager.js';
 /**
  * 工具参数接口
  */
-interface codebaseRetrievalArgs {
+interface CodebaseRetrievalArgs {
   project_root_path?: string;
   query?: string;
 }
@@ -22,9 +22,9 @@ interface ToolResult {
 }
 
 /**
- * 搜索上下文工具实现
+ * 代码库检索工具实现
  */
-export async function codebaseRetrievalTool(arguments_: codebaseRetrievalArgs): Promise<ToolResult> {
+export async function codebaseRetrievalTool(arguments_: CodebaseRetrievalArgs): Promise<ToolResult> {
   try {
     const projectRootPath = arguments_.project_root_path;
     const query = arguments_.query;
@@ -46,9 +46,7 @@ export async function codebaseRetrievalTool(arguments_: codebaseRetrievalArgs): 
       return { type: 'text', text: `Error: Invalid project path - ${error.message}` };
     }
 
-    logger.info(`Tool invoked: codebase-retrieval for project ${normalizedPath} with query: ${query}`);
-
-    // 创建 IndexManager 实例
+    // 创建 IndexManager 实例（从 settings.toml 读取配置）
     const config = getConfig();
     const indexManager = new IndexManager(
       config.indexStoragePath,
@@ -65,7 +63,7 @@ export async function codebaseRetrievalTool(arguments_: codebaseRetrievalArgs): 
 
     return { type: 'text', text: result };
   } catch (error: any) {
-    logger.exception('Error in codebase-retrieval_tool', error);
+    logger.exception('Error in codebase-retrieval tool', error);
     return { type: 'text', text: `Error: ${error.message}` };
   }
 }

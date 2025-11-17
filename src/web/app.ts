@@ -562,7 +562,6 @@ export function createApp(): express.Application {
         return res.json({ status: 'error', message: `Unknown tool: ${tool_name}` });
       }
 
-      logger.info(`Tool ${tool_name} executed successfully`);
       res.json({ status: 'success', result });
     } catch (error: any) {
       logger.exception(`Failed to execute tool ${req.body.tool_name}`, error);

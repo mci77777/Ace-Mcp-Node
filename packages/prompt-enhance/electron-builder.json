@@ -1,0 +1,57 @@
+{
+  "appId": "com.codebase-mcp.prompt-enhance",
+  "productName": "Prompt Enhance",
+  "copyright": "Copyright © 2024 wmymz",
+  "electronVersion": "39.2.1",
+  "directories": {
+    "output": "build/electron",
+    "buildResources": "assets"
+  },
+  "files": [
+    "dist/**/*",
+    "!dist/**/*.map",
+    "prompt/**/*",
+    "package.json"
+  ],
+  "extraResources": [
+    {
+      "from": "prompt",
+      "to": "prompt"
+    }
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      },
+      {
+        "target": "portable",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "assets/icon.ico",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Prompt Enhance"
+  },
+  "portable": {
+    "artifactName": "${productName}-${version}-portable.exe"
+  },
+  "mac": {
+    "target": ["dmg", "zip"],
+    "icon": "assets/icon.icns",
+    "category": "public.app-category.developer-tools"
+  },
+  "linux": {
+    "target": ["AppImage", "deb"],
+    "icon": "assets/icon.png",
+    "category": "Development"
+  },
+  "publish": null
+}

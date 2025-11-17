@@ -1,0 +1,247 @@
+name: Build Prompt Enhance Electron
+
+on:
+  push:
+    tags:
+      - 'prompt-enhance-v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (e.g., 0.1.0)'
+        required: false
+        default: '0.1.0'
+
+jobs:
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build shared package
+        run: npm run build -w @codebase-mcp/shared
+      
+      - name: Build prompt-enhance package
+        run: npm run build:electron -w @codebase-mcp/prompt-enhance
+      
+      - name: Verify build output
+        shell: pwsh
+        run: |
+          if (Test-Path "packages/prompt-enhance/dist/web/templates/index.html") {
+            Write-Host "✓ Build output generated successfully" -ForegroundColor Green
+            Write-Host "Templates directory:" -ForegroundColor Cyan
+            Get-ChildItem "packages/prompt-enhance/dist/web/templates" | Format-Table Name, Length
+          } else {
+            Write-Host "✗ Build output not found" -ForegroundColor Red
+            exit 1
+          }
+      
+      - name: Package Electron app (Windows)
+        run: npm run package:electron:win -w @codebase-mcp/prompt-enhance
+      
+      - name: List build artifacts
+        shell: pwsh
+        run: |
+          Write-Host "Build artifacts:" -ForegroundColor Cyan
+          Get-ChildItem -Path "packages/prompt-enhance/build/electron" -Recurse -File | 
+            Where-Object { $_.Extension -in @('.exe', '.zip', '.7z') } | 
+            Format-Table Name, @{Label="Size (MB)"; Expression={[math]::Round($_.Length/1MB, 2)}}
+      
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: |
+            packages/prompt-enhance/build/electron/*.exe
+            packages/prompt-enhance/build/electron/**/*.exe
+          retention-days: 7
+      
+      - name: Create Release (if tag)
+        if: startsWith(github.ref, 'refs/tags/prompt-enhance-v')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            packages/prompt-enhance/build/electron/*.exe
+            packages/prompt-enhance/build/electron/**/*.exe
+          draft: false
+          prerelease: false
+          name: Prompt Enhance ${{ github.ref_name }}
+          body: |
+            ## 🚀 Prompt Enhance - Electron Desktop App
+            
+            ### 📥 下载
+            
+            **Windows 安装版**:
+            - `Prompt Enhance-*-win-x64.exe` - 完整安装程序（推荐）
+            
+            **Windows 便携版**:
+            - `Prompt Enhance-*-portable.exe` - 无需安装，解压即用
+            
+            ### ✨ 功能特性
+            
+            - ✅ 原生桌面应用（无需浏览器）
+            - ✅ 内嵌 Web UI
+            - ✅ 自动查找可用端口
+            - ✅ 提示词增强服务
+            - ✅ 项目文件扫描
+            - ✅ 多模型支持
+            - ✅ 实时日志查看
+            - ✅ 配置管理界面
+            
+            ### 🔧 使用方法
+            
+            **安装版**:
+            1. 下载 `Prompt Enhance-*-win-x64.exe`
+            2. 双击运行安装程序
+            3. 按照向导完成安装
+            4. 从开始菜单或桌面快捷方式启动
+            
+            **便携版**:
+            1. 下载 `Prompt Enhance-*-portable.exe`
+            2. 放到任意目录
+            3. 双击运行
+            
+            ### ⚙️ 配置
+            
+            首次运行会自动创建配置文件：
+            ```
+            %USERPROFILE%\.codebase-mcp\settings.toml
+            ```
+            
+            可以在应用内的"配置"页面修改设置。
+            
+            ### 🐛 故障排除
+            
+            如果遇到问题：
+            
+            1. **窗口显示空白**
+               - 访问 `http://localhost:8090/debug` 查看诊断信息
+            
+            2. **端口被占用**
+               - 应用会自动尝试下一个可用端口（8091, 8092...）
+            
+            3. **查看日志**
+               - 日志位置：`%USERPROFILE%\.codebase-mcp\log\codebase-mcp.log`
+            
+            详细文档：[TROUBLESHOOTING.md](https://github.com/${{ github.repository }}/blob/main/packages/prompt-enhance/TROUBLESHOOTING.md)
+            
+            ### 📝 更新日志
+            
+            #### 新功能
+            - 增强的路径解析逻辑，支持多种环境
+            - 新增 `/debug` 调试页面
+            - 详细的诊断日志
+            - 改进的错误提示
+            
+            #### 修复
+            - ✅ 修复打包后 Web UI 空白问题
+            - ✅ 优化静态资源加载
+            - ✅ 改进路径解析兼容性
+            
+            ---
+            **版本**: `${{ github.ref_name }}`  
+            **提交**: `${{ github.sha }}`  
+            **构建时间**: `${{ github.event.head_commit.timestamp }}`
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  
+  build-macos:
+    name: Build macOS
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build shared package
+        run: npm run build -w @codebase-mcp/shared
+      
+      - name: Build prompt-enhance package
+        run: npm run build:electron -w @codebase-mcp/prompt-enhance
+      
+      - name: Package Electron app (macOS)
+        run: npm run package:electron:mac -w @codebase-mcp/prompt-enhance
+      
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-build
+          path: |
+            packages/prompt-enhance/build/electron/*.dmg
+            packages/prompt-enhance/build/electron/*.zip
+          retention-days: 7
+      
+      - name: Upload to Release (if tag)
+        if: startsWith(github.ref, 'refs/tags/prompt-enhance-v')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            packages/prompt-enhance/build/electron/*.dmg
+            packages/prompt-enhance/build/electron/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  
+  build-linux:
+    name: Build Linux
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build shared package
+        run: npm run build -w @codebase-mcp/shared
+      
+      - name: Build prompt-enhance package
+        run: npm run build:electron -w @codebase-mcp/prompt-enhance
+      
+      - name: Package Electron app (Linux)
+        run: npm run package:electron:linux -w @codebase-mcp/prompt-enhance
+      
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: |
+            packages/prompt-enhance/build/electron/*.AppImage
+            packages/prompt-enhance/build/electron/*.deb
+          retention-days: 7
+      
+      - name: Upload to Release (if tag)
+        if: startsWith(github.ref, 'refs/tags/prompt-enhance-v')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            packages/prompt-enhance/build/electron/*.AppImage
+            packages/prompt-enhance/build/electron/*.deb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

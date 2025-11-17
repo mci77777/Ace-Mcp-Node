@@ -26,7 +26,7 @@ async function runTests() {
   // 测试 1: 配置文件
   console.log('测试 1: 检查配置文件...');
   try {
-    const configFile = path.join(os.homedir(), '.acemcp', 'settings.toml');
+    const configFile = path.join(os.homedir(), '.codebase-mcp', 'settings.toml');
     
     if (!fs.existsSync(configFile)) {
       console.log('  ⚠️  配置文件不存在，正在创建...');
@@ -113,7 +113,7 @@ async function runTests() {
   // 测试 5: 日志目录
   console.log('\n测试 5: 检查日志目录...');
   try {
-    const logDir = path.join(os.homedir(), '.acemcp', 'log');
+    const logDir = path.join(os.homedir(), '.codebase-mcp', 'log');
     if (fs.existsSync(logDir)) {
       const logFile = path.join(logDir, 'acemcp.log');
       console.log(`  ✅ 日志目录存在: ${logDir}`);
@@ -147,7 +147,7 @@ async function runTests() {
   if (results.failed.length === 0) {
     console.log('🎉 所有测试通过！服务器已准备就绪。');
     console.log('\n下一步：');
-    console.log('  1. 检查配置: cat ~/.acemcp/settings.toml');
+    console.log('  1. 检查配置: cat ~/.codebase-mcp/settings.toml');
     console.log('  2. 设置 BASE_URL 和 TOKEN');
     console.log('  3. 启动服务器: npm start');
     console.log('  4. 或启动 Web 界面: npm start -- --web-port 8090');

@@ -486,26 +486,17 @@ export class IndexManager {
   }
 
   /**
-   * 搜索代码上下文（自动增量索引）
+   * 代码库检索（自动增量索引）
    */
   async codebaseRetrieval(projectRootPath: string, query: string): Promise<string> {
     const normalizedPath = this.normalizePath(projectRootPath);
-    logger.info(`Searching context in project ${normalizedPath} with query: ${query}`);
 
     try {
       // 步骤 1: 自动索引
-      logger.info(`Auto-indexing project ${normalizedPath} before search...`);
       const indexResult = await this.indexProject(projectRootPath);
 
       if (indexResult.status === 'error') {
         return `Error: Failed to index project before search. ${indexResult.message}`;
-      }
-
-      // 记录索引统计信息
-      if (indexResult.stats) {
-        logger.info(
-          `Auto-indexing completed: total=${indexResult.stats.total_blobs}, existing=${indexResult.stats.existing_blobs}, new=${indexResult.stats.new_blobs}`
-        );
       }
 
       // 步骤 2: 加载已索引的 blob 名称
@@ -517,7 +508,6 @@ export class IndexManager {
       }
 
       // 步骤 3: 执行搜索
-      logger.info(`Performing search with ${blobNames.length} blobs...`);
       const payload = {
         information_request: query,
         blobs: {
@@ -532,7 +522,7 @@ export class IndexManager {
       };
 
       const searchRequest = async () => {
-        // 使用 httpClient 确保配置一致性
+        // 使用 httpClient 确保配置一致性（BASE_URL 和 TOKEN 从 settings.toml 读取）
         const response = await this.httpClient.post(
           `${this.baseUrl}/agents/codebase-retrieval`,
           payload,
@@ -547,21 +537,19 @@ export class IndexManager {
       try {
         result = await this.retryRequest(searchRequest, 3, 2000);
       } catch (error: any) {
-        logger.error(`Search request failed after retries: ${error.message}`);
-        return `Error: Search request failed after 3 retries. ${error.message}`;
+        logger.error(`Search request failed: ${error.message}`);
+        return `Error: Search request failed. ${error.message}`;
       }
 
       const formattedRetrieval = result.formatted_retrieval || '';
 
       if (!formattedRetrieval) {
-        logger.warning(`Search returned empty result for project ${normalizedPath}`);
         return 'No relevant code context found for your query.';
       }
 
-      logger.info(`Search completed for project ${normalizedPath}`);
       return formattedRetrieval;
     } catch (error: any) {
-      logger.error(`Failed to search context in project ${normalizedPath}: ${error.message}`);
+      logger.error(`Codebase retrieval failed: ${error.message}`);
       return `Error: ${error.message}`;
     }
   }

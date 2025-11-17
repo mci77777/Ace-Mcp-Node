@@ -4,8 +4,176 @@
 
 ## 工作流列表
 
-- **build-prompt-enhance.yml** - 构建和发布 Prompt Enhance Windows 桌面应用
+- **build-prompt-enhance-electron.yml** - 构建和发布 Prompt Enhance Electron 桌面应用（Windows/macOS/Linux）
 - **build-retrieval.yml** - 构建和发布 Retrieval MCP 服务器
+
+---
+
+## Build Prompt Enhance Electron（新版）
+
+自动构建和发布 Prompt Enhance Electron 桌面应用，支持 Windows、macOS 和 Linux。
+
+### 触发条件
+
+- **自动触发**: 推送符合 `prompt-enhance-v*` 格式的 tag
+- **手动触发**: 在 GitHub Actions 页面手动运行
+
+### 支持平台
+
+| 平台 | 构建产物 | 说明 |
+|------|---------|------|
+| Windows | `.exe` (NSIS 安装版 + Portable 便携版) | 约 92 MB |
+| macOS | `.dmg` + `.zip` | 需要 macOS runner |
+| Linux | `.AppImage` + `.deb` | 适用于大多数发行版 |
+
+### 使用方法
+
+#### 方法 1: 自动发布（推荐）
+
+```bash
+# 1. 更新版本号
+cd packages/prompt-enhance
+# 编辑 package.json 中的 version 字段
+
+# 2. 提交更改
+git add .
+git commit -m "chore: release prompt-enhance v0.1.0"
+
+# 3. 创建并推送 tag
+git tag -a prompt-enhance-v0.1.0 -m "Release Prompt Enhance v0.1.0"
+git push origin main
+git push origin prompt-enhance-v0.1.0
+```
+
+#### 方法 2: 使用发布脚本
+
+```powershell
+# 自动化整个发布流程
+.\scripts\release-prompt-enhance.ps1 -Version "0.1.0"
+
+# Dry run（测试但不实际发布）
+.\scripts\release-prompt-enhance.ps1 -Version "0.1.0" -DryRun
+
+# 跳过测试
+.\scripts\release-prompt-enhance.ps1 -Version "0.1.0" -SkipTests
+```
+
+#### 方法 3: 手动触发
+
+1. 访问 GitHub Actions 页面
+2. 选择 "Build Prompt Enhance Electron"
+3. 点击 "Run workflow"
+4. 输入版本号（可选）
+5. 点击 "Run workflow"
+
+### 工作流步骤
+
+每个平台的构建流程：
+
+1. **Checkout code** - 检出代码
+2. **Setup Node.js** - 设置 Node.js 18 环境
+3. **Install dependencies** - 安装依赖（npm ci）
+4. **Build shared package** - 构建共享包
+5. **Build prompt-enhance package** - 构建 prompt-enhance 包（TypeScript + 复制模板）
+6. **Verify build output** - 验证构建产物（检查模板文件）
+7. **Package Electron app** - 使用 electron-builder 打包
+8. **List build artifacts** - 列出构建产物
+9. **Upload artifacts** - 上传到 GitHub（保留 7 天）
+10. **Create Release** - 创建 GitHub Release（仅 tag 触发时）
+
+### 构建产物
+
+#### Windows
+- `Prompt Enhance-{version}-win-x64.exe` - NSIS 安装程序（约 92 MB）
+- `Prompt Enhance-{version}-portable.exe` - 便携版（约 92 MB）
+
+#### macOS
+- `Prompt Enhance-{version}.dmg` - DMG 镜像
+- `Prompt Enhance-{version}-mac.zip` - ZIP 压缩包
+
+#### Linux
+- `Prompt Enhance-{version}.AppImage` - AppImage 格式
+- `Prompt Enhance-{version}.deb` - Debian 包
+
+### 本地测试
+
+发布前务必本地测试：
+
+```powershell
+# 1. 构建
+npm run build:electron -w @codebase-mcp/prompt-enhance
+
+# 2. 验证文件
+ls packages/prompt-enhance/dist/web/templates
+
+# 3. 本地运行
+npm run start:electron -w @codebase-mcp/prompt-enhance
+
+# 4. 打包测试
+npm run package:electron:win -w @codebase-mcp/prompt-enhance
+
+# 5. 运行打包后的应用
+$exe = Get-ChildItem -Path "packages/prompt-enhance/build/electron" -Filter "*.exe" -Recurse | 
+    Where-Object { $_.Name -notlike "*Uninstall*" } | 
+    Select-Object -First 1
+& $exe.FullName
+```
+
+### 故障排除
+
+#### 构建失败
+
+1. **检查依赖**
+   ```bash
+   npm ci
+   ```
+
+2. **本地测试构建**
+   ```bash
+   npm run build:electron -w @codebase-mcp/prompt-enhance
+   ```
+
+3. **验证模板文件**
+   ```bash
+   ls packages/prompt-enhance/dist/web/templates
+   # 应该看到: index.html, debug.html, scripts/, styles/, components/
+   ```
+
+#### Web UI 空白
+
+如果打包后 Web UI 显示空白：
+
+1. 访问 `http://localhost:8090/debug` 查看诊断信息
+2. 查看日志：`%USERPROFILE%\.codebase-mcp\log\codebase-mcp.log`
+3. 参考 [WEB_UI_DEBUG_GUIDE.md](../../.kiro/specs/architecture-split/WEB_UI_DEBUG_GUIDE.md)
+
+#### Release 创建失败
+
+- 确保 `GITHUB_TOKEN` 有足够权限
+- 检查 tag 格式（必须是 `prompt-enhance-v*`）
+- 确保构建产物路径正确
+
+### 版本管理
+
+- **Tag 格式**: `prompt-enhance-v<major>.<minor>.<patch>[-prerelease]`
+- **正式版本**: `prompt-enhance-v0.1.0`, `prompt-enhance-v1.0.0`
+- **预发布版本**: `prompt-enhance-v0.1.0-alpha.1`, `prompt-enhance-v1.0.0-beta.2`
+- **语义化版本**: 遵循 [Semantic Versioning](https://semver.org/)
+
+### 相关文档
+
+- [RELEASE_GUIDE.md](../../packages/prompt-enhance/RELEASE_GUIDE.md) - 详细发布流程
+- [TROUBLESHOOTING.md](../../packages/prompt-enhance/TROUBLESHOOTING.md) - 故障排除指南
+- [WEB_UI_DEBUG_GUIDE.md](../../.kiro/specs/architecture-split/WEB_UI_DEBUG_GUIDE.md) - Web UI 调试指南
+- [ELECTRON_INTEGRATION_SUMMARY.md](../../.kiro/specs/architecture-split/ELECTRON_INTEGRATION_SUMMARY.md) - Electron 集成总结
+
+---
+
+## Build Prompt Enhance（旧版 - 已弃用）
+
+> ⚠️ **注意**: 此工作流已被 `build-prompt-enhance-electron.yml` 替代。
+> 
+> 新版本使用 Electron 打包，提供更好的用户体验和跨平台支持。
 
 ---
 

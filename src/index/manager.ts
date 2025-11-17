@@ -631,7 +631,6 @@ export class IndexManager {
       }
 
       // 步骤 3: 执行搜索
-      logger.info(`Performing search with ${blobNames.length} blobs...`);
       const payload = {
         information_request: query,
         blobs: {
@@ -668,11 +667,9 @@ export class IndexManager {
       const formattedRetrieval = result.formatted_retrieval || '';
 
       if (!formattedRetrieval) {
-        logger.warning(`Search returned empty result for project ${normalizedPath}`);
         return 'No relevant code context found for your query.';
       }
 
-      logger.info(`Search completed for project ${normalizedPath}`);
       return formattedRetrieval;
     } catch (error: any) {
       logger.error(`Failed to search context in project ${normalizedPath}: ${error.message}`);
