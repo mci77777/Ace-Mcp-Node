@@ -232,10 +232,13 @@ class Logger {
   }
 
   /**
-   * 添加 WebSocket 广播处理器
+   * 添加 WebSocket 广播处理器（自动去重）
    */
   addBroadcastHandler(handler: (message: string) => void): void {
-    this.broadcastHandlers.push(handler);
+    // 防止重复注册同一个处理器
+    if (!this.broadcastHandlers.includes(handler)) {
+      this.broadcastHandlers.push(handler);
+    }
   }
 
   /**

@@ -18,6 +18,44 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// pkg 打包后的路径处理
+function getTemplatesDir(): string {
+  // 检查是否在 pkg 环境中运行
+  if ((process as any).pkg) {
+    // pkg 环境：优先使用 exe 同级目录的外部文件（通过 copy-templates-to-build 复制）
+    const exeDir = path.dirname(process.execPath);
+    const externalPath = path.join(exeDir, 'web', 'templates');
+    
+    logger.info(`pkg detected`);
+    logger.info(`exe directory: ${exeDir}`);
+    logger.info(`external templates path: ${externalPath}`);
+    logger.info(`external path exists: ${fs.existsSync(externalPath)}`);
+    
+    if (fs.existsSync(externalPath)) {
+      return externalPath;
+    }
+    
+    // 备选：尝试快照中的路径
+    const snapshotPaths = [
+      path.join(__dirname, 'templates'),
+      path.join(path.dirname(__dirname), 'templates'),
+    ];
+    
+    for (const testPath of snapshotPaths) {
+      logger.info(`Trying snapshot path: ${testPath}, exists: ${fs.existsSync(testPath)}`);
+      if (fs.existsSync(testPath)) {
+        return testPath;
+      }
+    }
+    
+    // 默认返回外部路径（即使不存在，也给出明确的错误信息）
+    return externalPath;
+  }
+  
+  // 开发环境：使用相对路径
+  return path.join(__dirname, 'templates');
+}
+
 /**
  * 配置更新接口
  */
@@ -52,7 +90,11 @@ export function createApp(): express.Application {
   app.use(express.urlencoded({ extended: true }));
 
   // 提供模板目录作为静态文件
-  const templatesDir = path.join(__dirname, 'templates');
+  const templatesDir = getTemplatesDir();
+  logger.info(`Attempting to serve templates from: ${templatesDir}`);
+  logger.info(`Templates directory exists: ${fs.existsSync(templatesDir)}`);
+  logger.info(`Running in pkg: ${!!(process as any).pkg}`);
+  
   if (fs.existsSync(templatesDir)) {
     app.use('/static', express.static(templatesDir));
     logger.info(`Static files served from: ${templatesDir}`);
@@ -66,11 +108,14 @@ export function createApp(): express.Application {
    * GET / - 提供主管理页面
    */
   app.get('/', (req: Request, res: Response) => {
-    const htmlFile = path.join(__dirname, 'templates', 'index.html');
+    const htmlFile = path.join(templatesDir, 'index.html');
+    logger.info(`Attempting to serve index.html from: ${htmlFile}`);
+    logger.info(`File exists: ${fs.existsSync(htmlFile)}`);
+    
     if (fs.existsSync(htmlFile)) {
       res.sendFile(htmlFile);
     } else {
-      res.send('<h1>Codebase Retrieval</h1><p>Template not found</p>');
+      res.send('<h1>Codebase Retrieval</h1><p>Template not found at: ' + htmlFile + '</p>');
     }
   });
 

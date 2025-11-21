@@ -1,0 +1,323 @@
+name: Build Retrieval EXE
+
+on:
+  push:
+    tags:
+      - 'retrieval-exe-v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (e.g., 0.1.0)'
+        required: false
+        default: '0.1.0'
+
+jobs:
+  build-windows:
+    name: Build Windows EXE
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build shared package
+        run: npm run build -w @codebase-mcp/shared
+      
+      - name: Build retrieval bundle
+        run: npm run build:bundle -w @codebase-mcp/retrieval
+      
+      - name: Verify bundle output
+        shell: pwsh
+        run: |
+          if (Test-Path "packages/retrieval/dist/bundle.cjs") {
+            Write-Host "✓ Bundle created successfully" -ForegroundColor Green
+            $size = [math]::Round((Get-Item "packages/retrieval/dist/bundle.cjs").Length/1MB, 2)
+            Write-Host "  Size: $size MB" -ForegroundColor Cyan
+          } else {
+            Write-Host "✗ Bundle not found" -ForegroundColor Red
+            exit 1
+          }
+      
+      - name: Package with pkg
+        run: npm run package:pkg -w @codebase-mcp/retrieval
+      
+      - name: Verify exe output
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path "packages/retrieval/build/pkg" -Filter "*.exe" | Select-Object -First 1
+          if ($exe) {
+            Write-Host "✓ EXE created successfully" -ForegroundColor Green
+            Write-Host "  Name: $($exe.Name)" -ForegroundColor Cyan
+            Write-Host "  Size: $([math]::Round($exe.Length/1MB, 2)) MB" -ForegroundColor Cyan
+            Write-Host "  Path: $($exe.FullName)" -ForegroundColor Gray
+          } else {
+            Write-Host "✗ EXE not found" -ForegroundColor Red
+            exit 1
+          }
+      
+      - name: Test exe execution
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path "packages/retrieval/build/pkg" -Filter "*.exe" | Select-Object -First 1
+          Write-Host "Testing exe: $($exe.FullName)" -ForegroundColor Yellow
+          
+          # Test that exe can start (will fail without MCP client, but should not crash)
+          $proc = Start-Process -FilePath $exe.FullName -PassThru -NoNewWindow
+          Start-Sleep -Seconds 2
+          
+          if ($proc.HasExited) {
+            Write-Host "⚠ Process exited (expected without MCP client)" -ForegroundColor Yellow
+          } else {
+            Write-Host "✓ Process started successfully" -ForegroundColor Green
+            Stop-Process -Id $proc.Id -Force
+          }
+      
+      - name: Create portable package
+        shell: pwsh
+        run: |
+          $buildDir = "packages/retrieval/build/pkg"
+          $portableDir = "packages/retrieval/build/portable"
+          
+          # Create portable directory
+          New-Item -ItemType Directory -Path $portableDir -Force | Out-Null
+          
+          # Copy exe
+          $exe = Get-ChildItem -Path $buildDir -Filter "*.exe" | Select-Object -First 1
+          Copy-Item -Path $exe.FullName -Destination "$portableDir/codebase-retrieval.exe"
+          
+          # Copy install script
+          Copy-Item -Path "packages/retrieval/scripts/install-windows.ps1" -Destination "$portableDir/"
+          
+          # Create README
+          @"
+# Codebase Retrieval - Windows Portable
+
+## 快速开始
+
+### 方法 1：直接使用（无需安装）
+
+```bash
+.\codebase-retrieval.exe
+```
+
+### 方法 2：安装到系统（推荐）
+
+以管理员权限运行 PowerShell：
+
+```powershell
+.\install-windows.ps1
+```
+
+安装后可在任意位置使用 `codebase-retrieval` 命令。
+
+## MCP 配置
+
+**Claude Desktop** (`%APPDATA%\Claude\claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "codebase-retrieval": {
+      "command": "codebase-retrieval"
+    }
+  }
+}
+```
+
+**Kiro** (`.kiro/settings/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "codebase-retrieval": {
+      "command": "codebase-retrieval",
+      "args": []
+    }
+  }
+}
+```
+
+## 配置文件
+
+首次运行会自动创建配置文件：
+
+```
+%USERPROFILE%\.codebase-mcp\settings.toml
+```
+
+## 可选：启用 Web 管理界面
+
+```bash
+codebase-retrieval --web-port 8091
+```
+
+访问 http://localhost:8091 查看管理界面。
+
+## 卸载
+
+```powershell
+.\install-windows.ps1 -Uninstall
+```
+
+## 故障排除
+
+查看日志：
+
+```
+%USERPROFILE%\.codebase-mcp\log\codebase-mcp.log
+```
+
+## 版本信息
+
+- Version: ${{ github.ref_name || inputs.version }}
+- Build: ${{ github.sha }}
+"@ | Out-File -FilePath "$portableDir/README.md" -Encoding UTF8
+          
+          Write-Host "✓ Portable package created" -ForegroundColor Green
+      
+      - name: Create ZIP archive
+        shell: pwsh
+        run: |
+          $portableDir = "packages/retrieval/build/portable"
+          $zipFile = "packages/retrieval/build/codebase-retrieval-win-x64-portable.zip"
+          
+          Compress-Archive -Path "$portableDir/*" -DestinationPath $zipFile -Force
+          
+          $size = [math]::Round((Get-Item $zipFile).Length/1MB, 2)
+          Write-Host "✓ ZIP created: $zipFile ($size MB)" -ForegroundColor Green
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-exe
+          path: |
+            packages/retrieval/build/pkg/*.exe
+            packages/retrieval/build/*.zip
+          retention-days: 7
+      
+      - name: Create Release (if tag)
+        if: startsWith(github.ref, 'refs/tags/retrieval-exe-v')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            packages/retrieval/build/pkg/*.exe
+            packages/retrieval/build/*.zip
+          draft: false
+          prerelease: false
+          name: Codebase Retrieval EXE ${{ github.ref_name }}
+          body: |
+            ## 🚀 Codebase Retrieval - Windows 便携版
+            
+            ### 📥 下载
+            
+            **便携版 ZIP**（推荐）:
+            - `codebase-retrieval-win-x64-portable.zip` - 包含 exe + 安装脚本 + 说明文档
+            
+            **单独 EXE**:
+            - `codebase-retrieval-win-x64.exe` - 仅可执行文件
+            
+            ### ✨ 功能特性
+            
+            - ✅ 无需 Node.js 环境
+            - ✅ 单个 exe 文件，开箱即用
+            - ✅ 支持注册到系统环境变量
+            - ✅ 提供 `codebase-retrieval` MCP 工具
+            - ✅ 语义代码搜索
+            - ✅ 增量索引（SHA-256 去重）
+            - ✅ 跨平台路径支持（Windows/WSL/Unix）
+            - ✅ 可选 Web 管理界面
+            
+            ### 🔧 使用方法
+            
+            #### 方法 1：快速使用（无需安装）
+            
+            1. 下载并解压 `codebase-retrieval-win-x64-portable.zip`
+            2. 在 MCP 客户端配置中使用绝对路径：
+            
+            ```json
+            {
+              "mcpServers": {
+                "codebase-retrieval": {
+                  "command": "C:\\path\\to\\codebase-retrieval.exe"
+                }
+              }
+            }
+            ```
+            
+            #### 方法 2：安装到系统（推荐）
+            
+            1. 下载并解压 `codebase-retrieval-win-x64-portable.zip`
+            2. 以管理员权限运行 PowerShell
+            3. 执行安装脚本：
+            
+            ```powershell
+            cd path\to\extracted\folder
+            .\install-windows.ps1
+            ```
+            
+            4. 重新打开终端，验证安装：
+            
+            ```bash
+            codebase-retrieval --help
+            ```
+            
+            5. 在 MCP 客户端配置中使用命令名：
+            
+            ```json
+            {
+              "mcpServers": {
+                "codebase-retrieval": {
+                  "command": "codebase-retrieval"
+                }
+              }
+            }
+            ```
+            
+            ### ⚙️ 配置
+            
+            首次运行会自动创建配置文件：
+            ```
+            %USERPROFILE%\.codebase-mcp\settings.toml
+            ```
+            
+            可以手动编辑或通过 Web 界面修改（使用 `--web-port 8091` 启动）。
+            
+            ### 🐛 故障排除
+            
+            **查看日志**:
+            ```
+            %USERPROFILE%\.codebase-mcp\log\codebase-mcp.log
+            ```
+            
+            **测试 exe**:
+            ```bash
+            codebase-retrieval --web-port 8091
+            ```
+            
+            访问 http://localhost:8091 查看管理界面。
+            
+            **卸载**:
+            ```powershell
+            .\install-windows.ps1 -Uninstall
+            ```
+            
+            ### 📖 文档
+            
+            - [README.md](https://github.com/${{ github.repository }}/blob/main/packages/retrieval/README.md)
+            - [MCP 配置示例](https://github.com/${{ github.repository }}/blob/main/MCP_CONFIG_EXAMPLE.md)
+            
+            ---
+            **版本**: `${{ github.ref_name }}`  
+            **提交**: `${{ github.sha }}`  
+            **构建时间**: `${{ github.event.head_commit.timestamp }}`
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

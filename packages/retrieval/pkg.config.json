@@ -1,0 +1,13 @@
+{
+  "name": "codebase-retrieval",
+  "version": "0.1.0",
+  "bin": "dist/bundle.cjs",
+  "targets": [
+    "node20-win-x64"
+  ],
+  "outputPath": "build/pkg",
+  "assets": [
+    "dist/web/templates/**/*"
+  ],
+  "compress": "GZip"
+}

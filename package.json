@@ -19,6 +19,7 @@
     "test:retrieval": "npm run test -w @codebase-mcp/retrieval",
     "clean": "npm run clean --workspaces --if-present",
     "package:prompt-enhance": "npm run package -w @codebase-mcp/prompt-enhance",
+    "package:retrieval": "npm run package:pkg -w @codebase-mcp/retrieval",
     "deploy:prepare": "node scripts/deploy-prepare.js",
     "deploy": "node scripts/deploy.js"
   },

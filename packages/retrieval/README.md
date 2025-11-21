@@ -14,7 +14,32 @@ MCP (Model Context Protocol) 服务器，为 AI 助手提供语义代码搜索�
 
 ## 安装
 
-### 方式 1: 通过 npm（推荐）
+### 方式 1: Windows 便携版（推荐，无需 Node.js）
+
+**下载预编译 exe**:
+
+从 [GitHub Releases](https://github.com/your-repo/codebase-mcp/releases) 下载 `codebase-retrieval-win-x64-portable.zip`
+
+**快速使用**:
+
+```bash
+# 解压后直接运行
+.\codebase-retrieval.exe
+```
+
+**安装到系统**（推荐）:
+
+```powershell
+# 以管理员权限运行
+.\install-windows.ps1
+
+# 验证安装
+codebase-retrieval --help
+```
+
+详细说明：[PORTABLE_GUIDE.md](./PORTABLE_GUIDE.md)
+
+### 方式 2: 通过 npm
 
 ```bash
 # 全局安装
@@ -27,7 +52,7 @@ codebase-retrieval
 npx @codebase-mcp/retrieval
 ```
 
-### 方式 2: 从源码运行
+### 方式 3: 从源码运行
 
 ```bash
 # 克隆仓库
