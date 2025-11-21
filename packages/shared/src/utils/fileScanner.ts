@@ -45,56 +45,77 @@ export interface ScanResult {
 }
 
 /**
- * 加载 .gitignore 文件
- * @param rootPath 项目根目录
- * @returns Ignore 实例或 null
+ * 加载 .gitignore 文件（向上查找父目录）
+ * @param scanPath 扫描起始路径
+ * @returns { ig: Ignore 实例, gitignoreRoot: .gitignore 所在目录 }
  */
-export function loadGitignore(rootPath: string): Ignore | null {
-  const gitignorePath = path.join(rootPath, '.gitignore');
+export function loadGitignore(scanPath: string): { ig: Ignore; gitignoreRoot: string } {
+  const ig = ignore();
   
-  if (!fs.existsSync(gitignorePath)) {
-    logger.debug(`No .gitignore found at ${gitignorePath}`);
-    return null;
+  // 默认排除 .git 目录
+  ig.add('.git');
+  
+  // 向上查找 .gitignore 文件
+  let currentDir = path.resolve(scanPath);
+  let gitignorePath: string | null = null;
+  let gitignoreRoot: string = currentDir;
+  
+  while (true) {
+    const candidatePath = path.join(currentDir, '.gitignore');
+    if (fs.existsSync(candidatePath)) {
+      gitignorePath = candidatePath;
+      gitignoreRoot = currentDir;
+      break;
+    }
+    
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) {
+      // 已到达根目录
+      break;
+    }
+    currentDir = parentDir;
   }
-
-  try {
-    const content = fs.readFileSync(gitignorePath, 'utf-8');
-    const patterns = content.split('\n');
-    const ig = ignore().add(patterns);
-    logger.info(`Loaded .gitignore with ${patterns.length} patterns from ${gitignorePath}`);
-    return ig;
-  } catch (error) {
-    logger.warning(`Failed to load .gitignore from ${gitignorePath}: ${error}`);
-    return null;
+  
+  if (gitignorePath) {
+    try {
+      const content = fs.readFileSync(gitignorePath, 'utf-8');
+      ig.add(content);
+      logger.info(`Loaded .gitignore from: ${gitignorePath} (root: ${gitignoreRoot})`);
+    } catch (error: any) {
+      logger.warning(`Failed to read .gitignore: ${gitignorePath}, error: ${error.message}`);
+    }
+  } else {
+    logger.info(`No .gitignore found in directory tree starting from: ${scanPath}`);
   }
+  
+  return { ig, gitignoreRoot };
 }
 
 /**
  * 检查路径是否应该被排除
  * @param filePath 文件完整路径
- * @param rootPath 项目根目录
+ * @param gitignoreRoot .gitignore 所在的根目录
  * @param gitignoreSpec .gitignore 规则
  * @param excludePatterns 额外的排除模式
  * @returns 是否应该排除
  */
 export function shouldExclude(
   filePath: string,
-  rootPath: string,
-  gitignoreSpec: Ignore | null,
+  gitignoreRoot: string,
+  gitignoreSpec: Ignore,
   excludePatterns: string[] = []
 ): boolean {
   try {
-    const relativePath = path.relative(rootPath, filePath);
+    // 计算相对于 .gitignore 根目录的路径
+    const relativePath = path.relative(gitignoreRoot, filePath);
     const pathStr = relativePath.replace(/\\/g, '/');
 
     // 检查 .gitignore 模式
-    if (gitignoreSpec) {
-      const isDir = fs.statSync(filePath).isDirectory();
-      const testPath = isDir ? pathStr + '/' : pathStr;
-      if (gitignoreSpec.ignores(testPath)) {
-        logger.debug(`Excluded by .gitignore: ${testPath}`);
-        return true;
-      }
+    const isDir = fs.statSync(filePath).isDirectory();
+    const testPath = isDir ? pathStr + '/' : pathStr;
+    if (gitignoreSpec.ignores(testPath)) {
+      logger.debug(`Excluded by .gitignore: ${testPath}`);
+      return true;
     }
 
     // 检查排除模式
@@ -168,8 +189,8 @@ export async function scanDirectory(
     throw new Error(`Path is not a directory: ${rootPath}`);
   }
 
-  // 加载 .gitignore
-  const gitignoreSpec = loadGitignore(normalizedRoot);
+  // 加载 .gitignore（向上查找父目录）
+  const { ig: gitignoreSpec, gitignoreRoot } = loadGitignore(normalizedRoot);
 
   // 统计信息
   const scanStats = {
@@ -230,8 +251,8 @@ export async function scanDirectory(
       if (entry.isDirectory()) {
         scanStats.totalDirs++;
 
-        // 检查目录是否应该排除
-        if (shouldExclude(fullPath, normalizedRoot, gitignoreSpec, excludePatterns)) {
+        // 检查目录是否应该排除（使用 gitignoreRoot 作为基准）
+        if (shouldExclude(fullPath, gitignoreRoot, gitignoreSpec, excludePatterns)) {
           scanStats.excludedCount++;
           logger.debug(`Excluded directory: ${relativePath}`);
           continue;
@@ -252,8 +273,8 @@ export async function scanDirectory(
         // 递归遍历子目录
         await walkDir(fullPath, currentDepth + 1, dirNode);
       } else if (entry.isFile()) {
-        // 检查文件是否应该排除
-        if (shouldExclude(fullPath, normalizedRoot, gitignoreSpec, excludePatterns)) {
+        // 检查文件是否应该排除（使用 gitignoreRoot 作为基准）
+        if (shouldExclude(fullPath, gitignoreRoot, gitignoreSpec, excludePatterns)) {
           scanStats.excludedCount++;
           logger.debug(`Excluded file: ${relativePath}`);
           continue;

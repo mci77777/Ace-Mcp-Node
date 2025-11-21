@@ -1,1 +1,0 @@
-Configuration loaded from: C:\Users\Administrator\.codebase-mcp\settings.toml

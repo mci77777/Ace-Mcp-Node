@@ -241,8 +241,8 @@ export class IndexManager {
       throw new Error(`Project root path is not a directory: ${projectRootPath}`);
     }
 
-    // 加载 .gitignore
-    const gitignoreSpec = loadGitignore(rootPath);
+    // 加载 .gitignore（向上查找父目录）
+    const { ig: gitignoreSpec, gitignoreRoot } = loadGitignore(rootPath);
 
     /**
      * 递归遍历目录
@@ -255,7 +255,7 @@ export class IndexManager {
 
         if (entry.isDirectory()) {
           // 对于目录，在进入前检查是否应该排除（性能优化）
-          if (!shouldExclude(fullPath, rootPath, gitignoreSpec, this.excludePatterns)) {
+          if (!shouldExclude(fullPath, gitignoreRoot, gitignoreSpec, this.excludePatterns)) {
             await walkDir(fullPath);
           } else {
             excludedCount++;
@@ -263,7 +263,7 @@ export class IndexManager {
           }
         } else if (entry.isFile()) {
           // 检查文件是否应该排除
-          if (shouldExclude(fullPath, rootPath, gitignoreSpec, this.excludePatterns)) {
+          if (shouldExclude(fullPath, gitignoreRoot, gitignoreSpec, this.excludePatterns)) {
             excludedCount++;
             logger.debug(`Excluded file: ${path.relative(rootPath, fullPath)}`);
             continue;
