@@ -601,8 +601,9 @@ export class EnhancePromptService {
       const systemPromptParts: string[] = [];
       
       // 1. 基础系统提示词
-      if (this.systemPrompt) {
+      if (this.systemPrompt && this.systemPrompt.trim()) {
         systemPromptParts.push(this.systemPrompt);
+        logger.info(`Added system prompt to response (${this.systemPrompt.length} chars)`);
       }
       
       // 2. 项目上下文
@@ -610,38 +611,43 @@ export class EnhancePromptService {
       systemPromptParts.push(`Project: ${projectPath}`);
       
       // 3. 项目树
-      if (projectTree) {
+      if (projectTree && projectTree.trim()) {
         systemPromptParts.push('\n\nProject Structure:');
         systemPromptParts.push('```');
         systemPromptParts.push(projectTree);
         systemPromptParts.push('```');
+        logger.info(`Added project tree to response (${projectTree.split('\n').length} lines)`);
       }
       
       // 4. 附加信息
-      if (this.injectCode) {
+      if (this.injectCode && this.injectCode.trim()) {
         systemPromptParts.push('\n---\n');
         systemPromptParts.push(this.injectCode);
+        logger.info(`Added inject code to response (${this.injectCode.length} chars)`);
       }
       
-      // 5. 用户指南
-      if (userGuidelinesContent) {
+      // 5. 用户指南（CLAUDE.md / AGENTS.md / Custom）
+      if (userGuidelinesContent && userGuidelinesContent.trim()) {
         systemPromptParts.push('\n---\n');
         systemPromptParts.push('User Guidelines:');
         systemPromptParts.push(userGuidelinesContent);
+        logger.info(`Added user guidelines to response (${userGuidelinesContent.length} chars)`);
       }
       
-      // 6. 工作区指南
-      if (workspaceGuidelinesContent) {
+      // 6. 工作区指南（README）
+      if (workspaceGuidelinesContent && workspaceGuidelinesContent.trim()) {
         systemPromptParts.push('\n---\n');
-        systemPromptParts.push('Workspace Guidelines:');
+        systemPromptParts.push('Workspace Guidelines (README):');
         systemPromptParts.push(workspaceGuidelinesContent);
+        logger.info(`Added workspace guidelines (README) to response (${workspaceGuidelinesContent.length} chars)`);
       }
       
       // 7. 选中文件内容
-      if (selectedCode) {
+      if (selectedCode && selectedCode.trim()) {
         systemPromptParts.push('\n---\n');
         systemPromptParts.push('Selected Files Content:');
         systemPromptParts.push(selectedCode);
+        logger.info(`Added selected files content to response (${selectedFiles.length} files, ${selectedCode.length} chars)`);
       }
       
       const systemPromptContent = systemPromptParts.join('\n').trim();
@@ -1076,8 +1082,9 @@ export class EnhancePromptService {
     const systemMessageParts: string[] = [];
 
     // 1. 系统提示词
-    if (this.systemPrompt) {
+    if (this.systemPrompt && this.systemPrompt.trim()) {
       systemMessageParts.push(this.systemPrompt);
+      logger.info(`Added system prompt to context (${this.systemPrompt.length} chars)`);
     }
 
     // 2. 项目上下文
@@ -1090,41 +1097,52 @@ export class EnhancePromptService {
     }
 
     // 3. 项目目录树
-    if (projectTree) {
+    if (projectTree && projectTree.trim()) {
       systemMessageParts.push('\nProject Structure (2 levels):');
       systemMessageParts.push('```');
       systemMessageParts.push(projectTree);
       systemMessageParts.push('```');
+      logger.info(`Added project tree to context (${projectTree.split('\n').length} lines)`);
     }
 
     // 4. 附加信息（inject code）
-    if (this.injectCode) {
+    if (this.injectCode && this.injectCode.trim()) {
       systemMessageParts.push('\n---\n');
       systemMessageParts.push(this.injectCode);
+      logger.info(`Added inject code to context (${this.injectCode.length} chars)`);
     }
 
-    // 5. 用户指南
+    // 5. 用户指南（CLAUDE.md / AGENTS.md / Custom）
     const userGuidelinesContent = await this.buildUserGuidelines(projectPath, userGuidelines, customGuidelinePath);
-    if (userGuidelinesContent) {
+    if (userGuidelinesContent && userGuidelinesContent.trim()) {
       systemMessageParts.push('\n---\n');
       systemMessageParts.push('User Guidelines:');
       systemMessageParts.push(userGuidelinesContent);
+      logger.info(`Added user guidelines to context (${userGuidelinesContent.length} chars, option: ${userGuidelines})`);
+    } else {
+      logger.info(`No user guidelines added (option: ${userGuidelines})`);
     }
 
     // 6. 工作区指南（README）
     const workspaceGuidelinesContent = await this.buildWorkspaceGuidelines(projectPath, includeReadme);
-    if (workspaceGuidelinesContent) {
+    if (workspaceGuidelinesContent && workspaceGuidelinesContent.trim()) {
       systemMessageParts.push('\n---\n');
-      systemMessageParts.push('Workspace Guidelines:');
+      systemMessageParts.push('Workspace Guidelines (README):');
       systemMessageParts.push(workspaceGuidelinesContent);
+      logger.info(`Added workspace guidelines (README) to context (${workspaceGuidelinesContent.length} chars)`);
+    } else {
+      logger.info(`No workspace guidelines (README) added (includeReadme: ${includeReadme})`);
     }
 
     // 7. 选中文件内容
     const selectedCode = await this.buildSelectedCode(projectPath, selectedFiles);
-    if (selectedCode) {
+    if (selectedCode && selectedCode.trim()) {
       systemMessageParts.push('\n---\n');
       systemMessageParts.push('Selected Files Content:');
       systemMessageParts.push(selectedCode);
+      logger.info(`Added selected files content to context (${selectedFiles.length} files, ${selectedCode.length} chars)`);
+    } else {
+      logger.info(`No selected files content added (${selectedFiles.length} files selected)`);
     }
 
     // 拼接系统消息
