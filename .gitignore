@@ -32,9 +32,18 @@ Thumbs.db
 # Configuration (use example files)
 settings.toml
 
-# Documentation (except README.md)
+# Documentation (except README.md and important docs)
 *.md
 !README.md
+!**/RELEASE_NOTES.md
+!**/CHANGELOG.md
+!**/CONTRIBUTING.md
+!**/DEVELOPMENT.md
+!**/MIGRATION_GUIDE.md
+!**/TROUBLESHOOTING.md
+!**/*_FIX.md
+!**/*_SUMMARY.md
+!**/*_COMPLETE.md
 
 # Test
 coverage/
