@@ -8,6 +8,9 @@ packages/*/dist/
 packages/*/build/
 *.tsbuildinfo
 
+# Note: exe files are too large for GitHub (>100MB)
+# Use GitHub Releases to distribute exe files
+
 # Logs
 *.log
 logs/
