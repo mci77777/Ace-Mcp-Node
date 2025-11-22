@@ -66,8 +66,8 @@ export function createApp(): express.Application {
   // 尝试多个可能的模板路径
   let templatesDir: string;
   const possiblePaths = [
+    path.join(__dirname, 'web', 'templates'),    // esbuild bundle: dist/bundle.cjs -> dist/web/templates
     path.join(__dirname, 'templates'),           // Electron asar: dist/web/templates
-    path.join(__dirname, 'web', 'templates'),    // pkg 打包后: C:\snapshot\dist\web\templates
     path.join(__dirname, '..', 'web', 'templates'), // 从 dist/ 向上查找
     path.join(__dirname, '../..', 'web', 'templates'), // 开发环境
   ];
