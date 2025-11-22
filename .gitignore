@@ -41,9 +41,11 @@ settings.toml
 !**/DEVELOPMENT.md
 !**/MIGRATION_GUIDE.md
 !**/TROUBLESHOOTING.md
+!**/DEV_GUIDE.md
 !**/*_FIX.md
 !**/*_SUMMARY.md
 !**/*_COMPLETE.md
+!**/*_ISSUE.md
 
 # Test
 coverage/
