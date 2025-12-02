@@ -129,7 +129,7 @@ jobs:
                - 访问 `http://localhost:8090/debug` 查看诊断信息
             
             2. **端口被占用**
-               - 应用会自动尝试下一个可用端口（8091, 8092...）
+               - 应用会自动尝试下一个可用端口（8091, 8090...）
             
             3. **查看日志**
                - 日志位置：`%USERPROFILE%\.codebase-mcp\log\codebase-mcp.log`

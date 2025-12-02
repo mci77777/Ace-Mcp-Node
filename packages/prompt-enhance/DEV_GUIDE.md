@@ -9,7 +9,7 @@
 npm run dev -w @codebase-mcp/prompt-enhance
 
 # 指定端口
-npm run dev -w @codebase-mcp/prompt-enhance -- --port 8092
+npm run dev -w @codebase-mcp/prompt-enhance -- --port 8090
 ```
 
 ### 工作流程
@@ -20,8 +20,8 @@ npm run dev -w @codebase-mcp/prompt-enhance -- --port 8092
 
 ### 访问应用
 
-- **Web UI**: http://localhost:8092
-- **调试页面**: http://localhost:8092/debug
+- **Web UI**: http://localhost:8090
+- **调试页面**: http://localhost:8090/debug
 
 ## 📁 项目结构
 
@@ -65,7 +65,7 @@ npm run build:shared -w @codebase-mcp/prompt-enhance
 
 ```bash
 # 开发模式（构建 + 运行）
-npm run dev -w @codebase-mcp/prompt-enhance -- --port 8092
+npm run dev -w @codebase-mcp/prompt-enhance -- --port 8090
 
 # Electron 开发模式
 npm run dev:electron -w @codebase-mcp/prompt-enhance
@@ -91,7 +91,7 @@ npm run package:electron:linux -w @codebase-mcp/prompt-enhance
 
 **解决**：使用不同的端口
 ```bash
-npm run dev -w @codebase-mcp/prompt-enhance -- --port 8092
+npm run dev -w @codebase-mcp/prompt-enhance -- --port 8090
 ```
 
 ### 2. 页面显示空白
@@ -169,7 +169,7 @@ notepad "$env:USERPROFILE\.codebase-mcp\log\codebase-mcp.log"
 
 ### 调试页面
 
-访问 http://localhost:8092/debug 查看：
+访问 http://localhost:8090/debug 查看：
 - 服务器状态
 - 配置信息
 - 模板文件路径
@@ -228,7 +228,7 @@ packages/prompt-enhance/build/electron/Prompt Enhance-0.1.0-portable.exe
 修改代码后：
 ```bash
 # 重新构建并运行
-npm run dev -w @codebase-mcp/prompt-enhance -- --port 8092
+npm run dev -w @codebase-mcp/prompt-enhance -- --port 8090
 ```
 
 ### 2. 只重新构建前端
@@ -256,7 +256,7 @@ npm run dev:watch -w @codebase-mcp/prompt-enhance
 2. **提交前先测试**
    ```bash
    npm run build
-   npm run dev -w @codebase-mcp/prompt-enhance -- --port 8092
+   npm run dev -w @codebase-mcp/prompt-enhance -- --port 8090
    ```
 
 3. **保持依赖更新**

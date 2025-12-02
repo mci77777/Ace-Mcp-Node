@@ -39,8 +39,8 @@ function mcpManager() {
                 // Task 10.3: Load initial data with error handling
                 await Promise.allSettled([
                     this.loadStatus(),
-                    this.loadConfig()
-                    // Note: loadProjects() removed - not needed for prompt-enhance module
+                    this.loadConfig(),
+                    this.loadProjects()
                 ]);
                 
                 // Setup WebSocket for logs (non-critical, don't block on errors)
@@ -190,14 +190,111 @@ function mcpManager() {
             }
         },
         
-        // Projects - REMOVED: Project management is for the retrieval module
-        // The prompt-enhance module does not manage project indexing
+        // Projects
+        async loadProjects() {
+            const store = Alpine.store('app');
+            try {
+                const data = await API.getProjects();
+                store.projects = data.projects || [];
+            } catch (error) {
+                console.error('Failed to load projects:', error);
+                // Don't show notification for initial load failure
+            }
+        },
+        
+        async checkProject(path) {
+            const store = Alpine.store('app');
+            if (!path || !path.trim()) {
+                store.showNotification('warning', 'Please enter a project path');
+                return;
+            }
+            
+            try {
+                const data = await API.checkProject(path.trim());
+                
+                if (data.indexed) {
+                    store.showNotification('info', `Project already indexed with ${data.blob_count} blobs`);
+                } else {
+                    // Auto-reindex if not indexed
+                    store.showNotification('info', 'Project not indexed, starting indexing...');
+                    await this.reindexProject(path.trim());
+                }
+                
+                // Reload projects list
+                await this.loadProjects();
+            } catch (error) {
+                console.error('Failed to check project:', error);
+                const errorInfo = Utils.formatError(error, 'Checking project');
+                store.showNotification(errorInfo.severity, errorInfo.message);
+            }
+        },
+        
+        async reindexProject(path) {
+            const store = Alpine.store('app');
+            try {
+                store.showNotification('info', 'Indexing project, please wait...');
+                const data = await API.reindexProject(path);
+                
+                if (data.success) {
+                    store.showNotification('success', data.result?.message || 'Project indexed successfully');
+                } else {
+                    store.showNotification('error', data.message || 'Failed to index project');
+                }
+                
+                // Reload projects list
+                await this.loadProjects();
+            } catch (error) {
+                console.error('Failed to reindex project:', error);
+                const errorInfo = Utils.formatError(error, 'Reindexing project');
+                store.showNotification(errorInfo.severity, errorInfo.message);
+            }
+        },
+        
+        async deleteProject(path) {
+            const store = Alpine.store('app');
+            
+            if (!confirm('Are you sure you want to delete this project index?')) {
+                return;
+            }
+            
+            try {
+                await API.deleteProject(path);
+                store.showNotification('success', 'Project index deleted');
+                
+                // Reload projects list
+                await this.loadProjects();
+            } catch (error) {
+                console.error('Failed to delete project:', error);
+                const errorInfo = Utils.formatError(error, 'Deleting project');
+                store.showNotification(errorInfo.severity, errorInfo.message);
+            }
+        },
+        
+        // WebSocket instance reference
+        _ws: null,
+        _wsReconnectTimer: null,
         
         // WebSocket for logs
         setupWebSocket() {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const ws = new WebSocket(`${protocol}//${window.location.host}/ws/logs`);
             const store = Alpine.store('app');
+            
+            // 清除重连定时器
+            if (this._wsReconnectTimer) {
+                clearTimeout(this._wsReconnectTimer);
+                this._wsReconnectTimer = null;
+            }
+            
+            // 关闭现有连接
+            if (this._ws) {
+                console.log('Closing existing WebSocket connection');
+                this._ws.onclose = null; // 防止触发重连
+                this._ws.close();
+                this._ws = null;
+            }
+            
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            this._ws = new WebSocket(`${protocol}//${window.location.host}/ws/logs`);
+            const ws = this._ws;
             
             ws.onopen = () => {
                 store.wsConnected = true;
@@ -247,9 +344,10 @@ function mcpManager() {
             ws.onclose = () => {
                 store.wsConnected = false;
                 console.log('WebSocket disconnected');
+                this._ws = null;
                 
                 // Attempt to reconnect after 5 seconds
-                setTimeout(() => this.setupWebSocket(), 5000);
+                this._wsReconnectTimer = setTimeout(() => this.setupWebSocket(), 5000);
             };
             
             ws.onerror = (error) => {

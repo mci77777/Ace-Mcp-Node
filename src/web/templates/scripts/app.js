@@ -244,11 +244,31 @@ function mcpManager() {
             }
         },
         
+        // WebSocket instance reference
+        _ws: null,
+        _wsReconnectTimer: null,
+        
         // WebSocket for logs
         setupWebSocket() {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const ws = new WebSocket(`${protocol}//${window.location.host}/ws/logs`);
             const store = Alpine.store('app');
+            
+            // 清除重连定时器
+            if (this._wsReconnectTimer) {
+                clearTimeout(this._wsReconnectTimer);
+                this._wsReconnectTimer = null;
+            }
+            
+            // 关闭现有连接
+            if (this._ws) {
+                console.log('Closing existing WebSocket connection');
+                this._ws.onclose = null; // 防止触发重连
+                this._ws.close();
+                this._ws = null;
+            }
+            
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            this._ws = new WebSocket(`${protocol}//${window.location.host}/ws/logs`);
+            const ws = this._ws;
             
             ws.onopen = () => {
                 store.wsConnected = true;
@@ -298,9 +318,10 @@ function mcpManager() {
             ws.onclose = () => {
                 store.wsConnected = false;
                 console.log('WebSocket disconnected');
+                this._ws = null;
                 
                 // Attempt to reconnect after 5 seconds
-                setTimeout(() => this.setupWebSocket(), 5000);
+                this._wsReconnectTimer = setTimeout(() => this.setupWebSocket(), 5000);
             };
             
             ws.onerror = (error) => {

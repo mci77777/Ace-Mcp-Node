@@ -17,7 +17,7 @@ import fs from 'fs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const TEST_PORT = 8092; // 使用不同的端口避免冲突
+const TEST_PORT = 8090; // 使用不同的端口避免冲突
 const BASE_URL = `http://localhost:${TEST_PORT}`;
 const STARTUP_TIMEOUT = 10000; // 10 秒启动超时
 

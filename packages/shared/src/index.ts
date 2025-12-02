@@ -17,6 +17,7 @@ export {
   initConfig,
   isFirstRun,
   markFirstRunCompleted,
+  getConfigPaths,
 } from './config.js';
 
 // ============================================================================

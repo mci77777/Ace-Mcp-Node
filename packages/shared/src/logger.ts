@@ -224,6 +224,12 @@ export class Logger {
     // 广播到 WebSocket 客户端
     if (level >= LogLevel.INFO) {
       const broadcastMsg = `${this.formatTimestamp(timestamp)} | ${levelName.trim()} | ${message}`;
+      
+      // 调试：如果有多个处理器，输出警告
+      if (this.broadcastHandlers.length > 1) {
+        console.error(`[Logger-shared] WARNING: Broadcasting to ${this.broadcastHandlers.length} handlers`);
+      }
+      
       this.broadcastHandlers.forEach((handler) => {
         try {
           handler(broadcastMsg);
@@ -241,6 +247,10 @@ export class Logger {
     // 防止重复注册同一个处理器
     if (!this.broadcastHandlers.includes(handler)) {
       this.broadcastHandlers.push(handler);
+      // 调试：输出当前处理器数量
+      console.error(`[Logger-shared] addBroadcastHandler: now have ${this.broadcastHandlers.length} handlers`);
+    } else {
+      console.error(`[Logger-shared] addBroadcastHandler: handler already exists, skipping`);
     }
   }
 

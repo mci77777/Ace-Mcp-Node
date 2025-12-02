@@ -38,6 +38,14 @@ logger.info(`Current __dirname: ${__dirname}`);
  * 配置更新接口
  */
 interface ConfigUpdate {
+  // Index Service (codebase-retrieval) 配置
+  base_url?: string;
+  token?: string;
+  batch_size?: number;
+  max_lines_per_blob?: number;
+  text_extensions?: string[];
+  exclude_patterns?: string[];
+  // Enhance Service (prompt-enhance) 配置
   enhance_base_url?: string;
   enhance_token?: string;
   model?: string;
@@ -65,11 +73,17 @@ export function createApp(): express.Application {
   // 提供模板目录作为静态文件
   // 尝试多个可能的模板路径
   let templatesDir: string;
+  
+  // 获取 exe 所在目录（pkg 打包后）
+  const exeDir = path.dirname(process.execPath);
+  
   const possiblePaths = [
+    path.join(exeDir, 'web', 'templates'),       // pkg 打包后: exe 同级目录
     path.join(__dirname, 'web', 'templates'),    // esbuild bundle: dist/bundle.cjs -> dist/web/templates
     path.join(__dirname, 'templates'),           // Electron asar: dist/web/templates
     path.join(__dirname, '..', 'web', 'templates'), // 从 dist/ 向上查找
     path.join(__dirname, '../..', 'web', 'templates'), // 开发环境
+    path.join(process.cwd(), 'web', 'templates'), // 当前工作目录
   ];
   
   // 记录所有尝试的路径
@@ -264,6 +278,14 @@ export function createApp(): express.Application {
     try {
       const config = getConfig();
       res.json({
+        // Index Service (codebase-retrieval) 配置
+        base_url: config.baseUrl,
+        token: config.token,
+        batch_size: config.batchSize,
+        max_lines_per_blob: config.maxLinesPerBlob,
+        text_extensions: Array.from(config.textExtensions),
+        exclude_patterns: config.excludePatterns,
+        // Enhance Service (prompt-enhance) 配置
         enhance_base_url: config.enhanceBaseUrl,
         enhance_token: config.enhanceToken,
         model: (config as any).model || '',
@@ -292,7 +314,27 @@ export function createApp(): express.Application {
       const content = fs.readFileSync(USER_CONFIG_FILE, 'utf-8');
       const settingsData: any = toml.parse(content);
 
-      // 更新设置
+      // 更新 Index Service (codebase-retrieval) 配置
+      if (configUpdate.base_url !== undefined) {
+        settingsData.BASE_URL = configUpdate.base_url;
+      }
+      if (configUpdate.token !== undefined) {
+        settingsData.TOKEN = configUpdate.token;
+      }
+      if (configUpdate.batch_size !== undefined) {
+        settingsData.BATCH_SIZE = configUpdate.batch_size;
+      }
+      if (configUpdate.max_lines_per_blob !== undefined) {
+        settingsData.MAX_LINES_PER_BLOB = configUpdate.max_lines_per_blob;
+      }
+      if (configUpdate.text_extensions !== undefined) {
+        settingsData.TEXT_EXTENSIONS = configUpdate.text_extensions;
+      }
+      if (configUpdate.exclude_patterns !== undefined) {
+        settingsData.EXCLUDE_PATTERNS = configUpdate.exclude_patterns;
+      }
+      
+      // 更新 Enhance Service (prompt-enhance) 配置
       if (configUpdate.enhance_base_url !== undefined) {
         settingsData.ENHANCE_BASE_URL = configUpdate.enhance_base_url;
       }
@@ -598,15 +640,17 @@ export function createApp(): express.Application {
       
       // 定位 prompt 文件
       // 在打包后，prompt 文件应该在 exe 所在目录或其子目录
+      const exeDir = path.dirname(process.execPath);
       const possiblePaths = [
-        path.join(__dirname, '../..', 'prompt', filename),  // 开发环境
-        path.join(__dirname, 'prompt', filename),            // pkg 打包后
+        path.join(exeDir, 'prompt', filename),               // pkg 打包后: exe 同级目录
+        path.join(__dirname, '../..', 'prompt', filename),   // 开发环境
+        path.join(__dirname, 'prompt', filename),            // 其他打包方式
         path.join(process.cwd(), 'prompt', filename),        // 当前工作目录
       ];
       
       const filePath = possiblePaths.find(p => fs.existsSync(p)) || possiblePaths[0];
       
-      logger.info(`Reading prompt file: ${filePath}`);
+      logger.info(`Reading prompt file: ${filePath} (exeDir: ${exeDir})`);
       
       // 检查文件是否存在
       if (!fs.existsSync(filePath)) {
@@ -653,15 +697,17 @@ export function createApp(): express.Application {
       
       // 定位 prompt 文件
       // 在打包后，prompt 文件应该在 exe 所在目录或其子目录
+      const exeDir = path.dirname(process.execPath);
       const possiblePaths = [
-        path.join(__dirname, '../..', 'prompt', filename),  // 开发环境
-        path.join(__dirname, 'prompt', filename),            // pkg 打包后
+        path.join(exeDir, 'prompt', filename),               // pkg 打包后: exe 同级目录
+        path.join(__dirname, '../..', 'prompt', filename),   // 开发环境
+        path.join(__dirname, 'prompt', filename),            // 其他打包方式
         path.join(process.cwd(), 'prompt', filename),        // 当前工作目录
       ];
       
       const filePath = possiblePaths.find(p => fs.existsSync(p)) || possiblePaths[0];
       
-      logger.info(`Updating prompt file: ${filePath} (${content.length} chars)`);
+      logger.info(`Updating prompt file: ${filePath} (${content.length} chars, exeDir: ${exeDir})`);
       
       // 确保 prompt 目录存在
       const promptDir = path.dirname(filePath);
@@ -696,6 +742,300 @@ export function createApp(): express.Application {
     } catch (error: any) {
       logger.exception(`Failed to update prompt file ${req.params.filename}`, error);
       res.status(500).json({ error: `Failed to write file: ${error.message}` });
+    }
+  });
+
+  // ============ 项目管理 API（代理到 retrieval 服务或本地实现） ============
+
+  /**
+   * GET /api/projects - 获取所有已索引项目列表
+   */
+  app.get('/api/projects', (req: Request, res: Response) => {
+    try {
+      const config = getConfig();
+      const projectsFile = path.join(config.indexStoragePath, 'projects.json');
+      
+      if (!fs.existsSync(projectsFile)) {
+        return res.json({ projects: [] });
+      }
+      
+      const content = fs.readFileSync(projectsFile, 'utf-8');
+      const projects = JSON.parse(content);
+      
+      const projectList = Object.keys(projects).map(projectPath => ({
+        path: projectPath,
+        blob_count: projects[projectPath].length,
+      }));
+      
+      res.json({ projects: projectList });
+    } catch (error: any) {
+      logger.error(`Failed to get projects: ${error.message}`);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  /**
+   * POST /api/projects/check - 检查项目是否已索引
+   */
+  app.post('/api/projects/check', (req: Request, res: Response) => {
+    try {
+      const { project_path } = req.body;
+      
+      if (!project_path) {
+        return res.status(400).json({ error: 'project_path is required' });
+      }
+      
+      const config = getConfig();
+      const projectsFile = path.join(config.indexStoragePath, 'projects.json');
+      
+      // 规范化路径
+      const normalizedPath = project_path.replace(/\\/g, '/');
+      
+      if (!fs.existsSync(projectsFile)) {
+        return res.json({
+          indexed: false,
+          blob_count: 0,
+          normalized_path: normalizedPath,
+        });
+      }
+      
+      const content = fs.readFileSync(projectsFile, 'utf-8');
+      const projects = JSON.parse(content);
+      
+      const blobNames = projects[normalizedPath] || [];
+      
+      res.json({
+        indexed: blobNames.length > 0,
+        blob_count: blobNames.length,
+        normalized_path: normalizedPath,
+      });
+    } catch (error: any) {
+      logger.error(`Failed to check project: ${error.message}`);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  /**
+   * POST /api/projects/reindex - 重新索引项目
+   * 注意：这需要 retrieval 服务的 IndexManager，这里提供一个简化实现
+   */
+  app.post('/api/projects/reindex', async (req: Request, res: Response) => {
+    try {
+      const { project_path } = req.body;
+      
+      if (!project_path) {
+        return res.status(400).json({ error: 'project_path is required' });
+      }
+      
+      logger.info(`Reindex request for project: ${project_path}`);
+      
+      // 动态导入 IndexManager（如果可用）
+      try {
+        const { IndexManager } = await import('@codebase-mcp/retrieval/dist/index/manager.js');
+        const config = getConfig();
+        
+        const indexManager = new IndexManager(
+          config.indexStoragePath,
+          config.baseUrl,
+          config.token,
+          config.textExtensions,
+          config.batchSize,
+          config.maxLinesPerBlob,
+          config.excludePatterns
+        );
+        
+        const result = await indexManager.indexProject(project_path);
+        
+        res.json({
+          success: result.status !== 'error',
+          message: 'Project reindexed',
+          result,
+        });
+      } catch (importError: any) {
+        // 如果无法导入 IndexManager，返回提示信息
+        logger.warning(`IndexManager not available: ${importError.message}`);
+        res.status(501).json({
+          error: 'Indexing service not available. Please use the retrieval service for project indexing.',
+          hint: 'Start the retrieval service with: npm run dev:retrieval -- --web-port 8091'
+        });
+      }
+    } catch (error: any) {
+      logger.exception(`Failed to reindex project: ${error.message}`, error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  /**
+   * DELETE /api/projects/delete - 删除项目索引
+   */
+  app.delete('/api/projects/delete', (req: Request, res: Response) => {
+    try {
+      const { project_path } = req.body;
+      
+      if (!project_path) {
+        return res.status(400).json({ error: 'project_path is required' });
+      }
+      
+      const config = getConfig();
+      const projectsFile = path.join(config.indexStoragePath, 'projects.json');
+      
+      // 规范化路径
+      const normalizedPath = project_path.replace(/\\/g, '/');
+      
+      if (!fs.existsSync(projectsFile)) {
+        return res.status(404).json({ error: 'No indexed projects found' });
+      }
+      
+      const content = fs.readFileSync(projectsFile, 'utf-8');
+      const projects = JSON.parse(content);
+      
+      if (!projects[normalizedPath]) {
+        return res.status(404).json({ error: 'Project not found in index' });
+      }
+      
+      // 删除项目
+      delete projects[normalizedPath];
+      
+      // 保存更新后的 projects.json
+      fs.writeFileSync(projectsFile, JSON.stringify(projects, null, 2), 'utf-8');
+      
+      logger.info(`Deleted project index: ${normalizedPath}`);
+      
+      res.json({
+        success: true,
+        message: 'Project index deleted successfully',
+        deleted_path: normalizedPath,
+      });
+    } catch (error: any) {
+      logger.exception(`Failed to delete project: ${error.message}`, error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  /**
+   * POST /api/projects/details - 获取项目详细信息
+   */
+  app.post('/api/projects/details', (req: Request, res: Response) => {
+    try {
+      const { project_path } = req.body;
+      
+      if (!project_path) {
+        return res.status(400).json({ error: 'project_path is required' });
+      }
+      
+      const config = getConfig();
+      const projectsFile = path.join(config.indexStoragePath, 'projects.json');
+      
+      // 规范化路径
+      const normalizedPath = project_path.replace(/\\/g, '/');
+      
+      if (!fs.existsSync(projectsFile)) {
+        return res.status(404).json({ error: 'No indexed projects found' });
+      }
+      
+      const content = fs.readFileSync(projectsFile, 'utf-8');
+      const projects = JSON.parse(content);
+      
+      if (!projects[normalizedPath]) {
+        return res.status(404).json({ error: 'Project not found in index' });
+      }
+      
+      const blobNames = projects[normalizedPath];
+      
+      // 统计文件类型分布
+      const fileTypeStats: Record<string, number> = {};
+      let totalFiles = 0;
+      
+      if (fs.existsSync(normalizedPath) && fs.statSync(normalizedPath).isDirectory()) {
+        const scanDir = (dir: string) => {
+          try {
+            const entries = fs.readdirSync(dir, { withFileTypes: true });
+            
+            for (const entry of entries) {
+              const fullPath = path.join(dir, entry.name);
+              
+              if (entry.isDirectory()) {
+                const shouldExclude = config.excludePatterns.some((pattern: string) => 
+                  entry.name === pattern || entry.name.match(new RegExp(pattern))
+                );
+                
+                if (!shouldExclude && !entry.name.startsWith('.')) {
+                  scanDir(fullPath);
+                }
+              } else if (entry.isFile()) {
+                const ext = path.extname(entry.name);
+                if (ext && config.textExtensions.has(ext)) {
+                  fileTypeStats[ext] = (fileTypeStats[ext] || 0) + 1;
+                  totalFiles++;
+                }
+              }
+            }
+          } catch (error) {
+            // 忽略无权限访问的目录
+          }
+        };
+        
+        scanDir(normalizedPath);
+      }
+      
+      res.json({
+        path: normalizedPath,
+        blob_count: blobNames.length,
+        file_count: totalFiles,
+        file_type_stats: fileTypeStats,
+        indexed: true,
+      });
+    } catch (error: any) {
+      logger.exception(`Failed to get project details: ${error.message}`, error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  /**
+   * POST /api/tools/execute - 执行 MCP 工具
+   * 注意：这需要 retrieval 服务的 codebaseRetrievalTool
+   */
+  app.post('/api/tools/execute', async (req: Request, res: Response) => {
+    try {
+      const { tool, arguments: args } = req.body;
+      
+      if (!tool) {
+        return res.status(400).json({ error: 'tool is required' });
+      }
+      
+      logger.info(`Tool execution request: ${tool}`);
+      
+      if (tool === 'codebase-retrieval') {
+        // 动态导入 codebaseRetrievalTool
+        try {
+          const { codebaseRetrievalTool } = await import('@codebase-mcp/retrieval/dist/tools/codebaseRetrieval.js');
+          
+          const result = await codebaseRetrievalTool(args);
+          
+          res.json({
+            status: 'success',
+            result: result.text,
+          });
+        } catch (importError: any) {
+          logger.warning(`codebaseRetrievalTool not available: ${importError.message}`);
+          res.status(501).json({
+            status: 'error',
+            message: 'Retrieval tool not available. Please use the retrieval service.',
+            hint: 'Start the retrieval service with: npm run dev:retrieval -- --web-port 8091'
+          });
+        }
+      } else {
+        res.status(400).json({
+          status: 'error',
+          message: `Unknown tool: ${tool}`,
+        });
+      }
+    } catch (error: any) {
+      logger.exception(`Failed to execute tool: ${error.message}`, error);
+      res.status(500).json({
+        status: 'error',
+        message: error.message,
+      });
     }
   });
 

@@ -12,8 +12,12 @@ import { logger } from './logger.js';
 export class LogBroadcaster {
   private clients: Set<WebSocket> = new Set();
   private static instance?: LogBroadcaster;
+  private static loggerSetup: boolean = false;
+  private boundBroadcast: (message: string) => void;
 
   constructor() {
+    // 绑定 broadcast 方法，确保引用稳定
+    this.boundBroadcast = this.broadcast.bind(this);
     this.setupLogger();
   }
 
@@ -29,19 +33,31 @@ export class LogBroadcaster {
 
   /**
    * 设置日志器以广播消息
+   * 使用静态标志确保只注册一次，防止重复广播
    */
   private setupLogger(): void {
+    // 防止重复注册广播处理器
+    if (LogBroadcaster.loggerSetup) {
+      console.error('[LogBroadcaster-shared] setupLogger called again, but already setup - skipping');
+      return;
+    }
+    LogBroadcaster.loggerSetup = true;
+    console.error('[LogBroadcaster-shared] setupLogger: registering broadcast handler');
+    
     // 添加广播处理器到日志器
-    logger.addBroadcastHandler((message: string) => {
-      this.broadcast(message);
-    });
+    logger.addBroadcastHandler(this.boundBroadcast);
   }
 
   /**
    * 添加 WebSocket 客户端
    */
   addClient(ws: WebSocket): void {
+    const prevCount = this.clients.size;
     this.clients.add(ws);
+    const newCount = this.clients.size;
+    
+    // 调试：输出客户端数量变化
+    console.error(`[LogBroadcaster-shared] addClient: ${prevCount} -> ${newCount} clients`);
     logger.debug('WebSocket 客户端已连接');
 
     // 设置关闭处理器
@@ -69,6 +85,12 @@ export class LogBroadcaster {
    */
   broadcast(message: string): void {
     const deadClients: WebSocket[] = [];
+    const clientCount = this.clients.size;
+    
+    // 调试：如果有多个客户端，输出警告
+    if (clientCount > 1) {
+      console.error(`[LogBroadcaster-shared] WARNING: Broadcasting to ${clientCount} clients`);
+    }
 
     for (const client of this.clients) {
       if (client.readyState === WebSocket.OPEN) {

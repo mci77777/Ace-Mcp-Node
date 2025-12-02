@@ -72,7 +72,7 @@ notepad "$env:USERPROFILE\.codebase-mcp\log\codebase-mcp.log"
    # 结束进程（替换 PID）
    taskkill /PID <PID> /F
    ```
-2. 或者应用会自动尝试下一个端口（8091, 8092...）
+2. 或者应用会自动尝试下一个端口（8091, 8090...）
 
 ### 问题 3: 配置文件错误
 

@@ -222,13 +222,56 @@ const API = {
         });
     },
     
-    // Projects - REMOVED: These endpoints are for the retrieval module
-    // The prompt-enhance module does not manage project indexing
+    // Projects
+    async getProjects() {
+        return this.request('/api/projects');
+    },
     
-    // Files - REMOVED: File listing is not needed for prompt-enhance
-    // The prompt-enhance module focuses on prompt enhancement only
+    async checkProject(path) {
+        return this.request('/api/projects/check', {
+            method: 'POST',
+            body: JSON.stringify({ project_path: path })
+        });
+    },
     
-    // Tools - REMOVED: Tool execution is for the retrieval module
+    async reindexProject(path) {
+        return this.request('/api/projects/reindex', {
+            method: 'POST',
+            body: JSON.stringify({ project_path: path }),
+            timeout: 300000 // 5 minutes for large projects
+        });
+    },
+    
+    async deleteProject(path) {
+        return this.request('/api/projects/delete', {
+            method: 'DELETE',
+            body: JSON.stringify({ project_path: path })
+        });
+    },
+    
+    async getProjectDetails(path) {
+        return this.request('/api/projects/details', {
+            method: 'POST',
+            body: JSON.stringify({ project_path: path })
+        });
+    },
+    
+    // Files
+    async listFiles(projectPath, maxDepth = 30) {
+        return this.request('/api/files/list', {
+            method: 'POST',
+            body: JSON.stringify({ project_path: projectPath, max_depth: maxDepth })
+        });
+    },
+    
+    // Tools
+    async executeTool(toolName, args) {
+        return this.request('/api/tools/execute', {
+            method: 'POST',
+            body: JSON.stringify({ tool: toolName, arguments: args }),
+            timeout: 120000 // 2 minutes for tool execution
+        });
+    },
     
     // Enhance Prompt
     async enhancePrompt(data, timeout = null) {

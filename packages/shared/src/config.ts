@@ -1,12 +1,45 @@
 /**
  * Codebase MCP 服务器的配置管理
  * 从 ~/.codebase-mcp/settings.toml 读取配置
+ * 
+ * 支持多种环境：
+ * - 普通 Node.js 运行
+ * - pkg 打包后的 exe
+ * - Electron 应用
  */
 
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import * as toml from '@iarna/toml';
+
+/**
+ * 获取用户主目录（兼容 pkg 打包环境）
+ * 在 pkg 打包后，os.homedir() 可能返回错误的路径
+ */
+function getHomeDir(): string {
+  // 优先使用环境变量（Windows）
+  if (process.platform === 'win32') {
+    // Windows 环境变量优先级：USERPROFILE > HOMEDRIVE+HOMEPATH > os.homedir()
+    if (process.env.USERPROFILE && fs.existsSync(process.env.USERPROFILE)) {
+      return process.env.USERPROFILE;
+    }
+    if (process.env.HOMEDRIVE && process.env.HOMEPATH) {
+      const homePath = path.join(process.env.HOMEDRIVE, process.env.HOMEPATH);
+      if (fs.existsSync(homePath)) {
+        return homePath;
+      }
+    }
+  } else {
+    // Unix/Linux/macOS
+    if (process.env.HOME && fs.existsSync(process.env.HOME)) {
+      return process.env.HOME;
+    }
+  }
+  
+  // 回退到 os.homedir()
+  return os.homedir();
+}
 
 /**
  * 配置选项接口
@@ -107,10 +140,24 @@ const DEFAULT_CONFIG = {
 
 /**
  * 用户配置和数据路径
+ * 使用 getHomeDir() 确保在 pkg 打包环境中也能正确获取路径
  */
-export const USER_CONFIG_DIR = path.join(os.homedir(), '.codebase-mcp');
+const HOME_DIR = getHomeDir();
+export const USER_CONFIG_DIR = path.join(HOME_DIR, '.codebase-mcp');
 export const USER_CONFIG_FILE = path.join(USER_CONFIG_DIR, 'settings.toml');
 export const USER_DATA_DIR = path.join(USER_CONFIG_DIR, 'data');
+
+/**
+ * 获取配置目录路径（用于调试）
+ */
+export function getConfigPaths(): { homeDir: string; configDir: string; configFile: string; dataDir: string } {
+  return {
+    homeDir: HOME_DIR,
+    configDir: USER_CONFIG_DIR,
+    configFile: USER_CONFIG_FILE,
+    dataDir: USER_DATA_DIR,
+  };
+}
 
 /**
  * 确保用户配置文件存在
@@ -256,10 +303,23 @@ export class Config {
    */
   private loadSettings(): any {
     try {
+      // 检查配置文件是否存在
+      if (!fs.existsSync(USER_CONFIG_FILE)) {
+        this.logFunction(`Configuration file not found: ${USER_CONFIG_FILE}`, 'warning');
+        this.logFunction(`Home directory detected: ${HOME_DIR}`, 'info');
+        this.logFunction(`Environment: USERPROFILE=${process.env.USERPROFILE}, HOME=${process.env.HOME}`, 'debug');
+        return {};
+      }
+      
       const content = fs.readFileSync(USER_CONFIG_FILE, 'utf-8');
-      return toml.parse(content);
-    } catch (error) {
-      // 加载失败时使用默认值
+      const settings = toml.parse(content);
+      // 移除重复的日志输出，配置加载信息由 logConfigSources() 统一输出
+      return settings;
+    } catch (error: any) {
+      // 加载失败时记录详细错误
+      this.logFunction(`Failed to load configuration: ${error.message}`, 'warning');
+      this.logFunction(`Config file path: ${USER_CONFIG_FILE}`, 'warning');
+      this.logFunction(`File exists: ${fs.existsSync(USER_CONFIG_FILE)}`, 'warning');
       return {};
     }
   }

@@ -1,5 +1,6 @@
 <!-- Home Page Component -->
 <!-- Main home page that integrates all home sub-components -->
+<!-- Note: Projects List is NOT included - project indexing is handled by codebase-retrieval module -->
 
 <div class="home-page">
     <!-- Status Cards -->
@@ -8,25 +9,18 @@
     <!-- Configuration Panel -->
     <div id="home-config-panel"></div>
     
-    <!-- Projects List -->
-    <div id="home-projects-list"></div>
-    
     <!-- Logs Panel -->
     <div id="home-logs-panel"></div>
-    
-    <!-- Tool Debugger -->
-    <div id="home-tool-debugger"></div>
 </div>
 
 <script>
     // Load home page sub-components
+    // Note: projects-list and tool-debugger are NOT loaded - they belong to codebase-retrieval module
     (async function() {
         const components = [
             { id: 'home-status-cards', path: 'components/home/status-cards.html' },
             { id: 'home-config-panel', path: 'components/home/config-panel.html' },
-            { id: 'home-projects-list', path: 'components/home/projects-list.html' },
-            { id: 'home-logs-panel', path: 'components/home/logs-panel.html' },
-            { id: 'home-tool-debugger', path: 'components/home/tool-debugger.html' }
+            { id: 'home-logs-panel', path: 'components/home/logs-panel.html' }
         ];
         
         for (const component of components) {
